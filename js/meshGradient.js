@@ -223,29 +223,85 @@ class MeshGradient {
     applyUniformBlur(blurAmount) {
         console.log("applyUniformBlur called with amount:", blurAmount);
         
-        // Create a temporary canvas with padding for the blur
-        const tempCanvas = document.createElement('canvas');
-        const padding = Math.ceil(blurAmount * 2.5); // Generous padding to avoid edge artifacts
-        tempCanvas.width = this.width + padding * 2;
-        tempCanvas.height = this.height + padding * 2;
-        const tempCtx = tempCanvas.getContext('2d');
+        // Mobile detection - check if likely on a mobile device
+        const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
-        // Copy original content from offscreen canvas to the center of temp canvas
-        tempCtx.drawImage(this.offCanvas, 0, 0, this.width, this.height, padding, padding, this.width, this.height);
+        // Reduce blur amount for mobile devices to improve performance
+        const adjustedBlurAmount = isMobileDevice ? 
+            Math.min(blurAmount, Math.round(Math.max(this.width, this.height) * 0.05)) : // Cap at 5% for mobile
+            blurAmount;
+            
+        try {
+            // Create a temporary canvas with padding for the blur
+            const tempCanvas = document.createElement('canvas');
+            const padding = Math.ceil(adjustedBlurAmount * 2.5);
+            tempCanvas.width = this.width + padding * 2;
+            tempCanvas.height = this.height + padding * 2;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Copy original content from offscreen canvas to the center of temp canvas
+            tempCtx.drawImage(this.offCanvas, 0, 0, this.width, this.height, padding, padding, this.width, this.height);
+            
+            // Extend edge pixels to padding area to avoid dark edges
+            this.extendEdgePixels(tempCtx, padding);
+            
+            // Try standard CSS filter blur first
+            try {
+                tempCtx.filter = `blur(${adjustedBlurAmount}px)`;
+                tempCtx.drawImage(tempCanvas, 0, 0);
+                tempCtx.filter = 'none';
+            } catch (err) {
+                console.warn("Canvas filter not supported, using fallback blur");
+                // Fallback for devices without filter support - use simplified blur
+                this.applyFallbackBlur(tempCanvas, adjustedBlurAmount);
+            }
+            
+            // Copy the blurred content back to the offscreen canvas
+            this.offCtx.clearRect(0, 0, this.width, this.height);
+            this.offCtx.drawImage(tempCanvas, padding, padding, this.width, this.height, 0, 0, this.width, this.height);
+            
+            console.log("Blur applied to offscreen canvas");
+        } catch (err) {
+            console.error("Error applying blur effect:", err);
+            // Last resort - skip blur entirely if there's an error
+        }
+    }
+    
+    /**
+     * Simple fallback blur for devices that don't support canvas filters
+     * @param {HTMLCanvasElement} canvas - Canvas to blur
+     * @param {Number} blurAmount - Amount of blur
+     */
+    applyFallbackBlur(canvas, blurAmount) {
+        // Simple box blur implementation for fallback
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imgData.data;
         
-        // Extend edge pixels to padding area to avoid dark edges
-        this.extendEdgePixels(tempCtx, padding);
+        // For mobile, use smaller blur radius to maintain performance
+        const simplifiedBlur = Math.min(blurAmount, 5); // Cap at 5px for fallback
         
-        // Apply blur to the temporary canvas
-        tempCtx.filter = `blur(${blurAmount}px)`;
-        tempCtx.drawImage(tempCanvas, 0, 0);
-        tempCtx.filter = 'none';
+        // Very simple box blur - just average with neighbors
+        // This is a minimal implementation; a full one would be more complex
+        const tempData = new Uint8ClampedArray(pixels);
         
-        // Copy the blurred content back to the offscreen canvas
-        this.offCtx.clearRect(0, 0, this.width, this.height);
-        this.offCtx.drawImage(tempCanvas, padding, padding, this.width, this.height, 0, 0, this.width, this.height);
+        // Apply a very simplified blur - just sample a few neighbors
+        for (let y = simplifiedBlur; y < canvas.height - simplifiedBlur; y++) {
+            for (let x = simplifiedBlur; x < canvas.width - simplifiedBlur; x++) {
+                const idx = (y * canvas.width + x) * 4;
+                
+                // Simple average of current pixel with neighbors above and below
+                for (let c = 0; c < 4; c++) { // Each color channel
+                    pixels[idx + c] = (
+                        tempData[idx + c] +
+                        tempData[idx - canvas.width * 4 + c] + // pixel above
+                        tempData[idx + canvas.width * 4 + c]   // pixel below
+                    ) / 3;
+                }
+            }
+        }
         
-        console.log("Blur applied to offscreen canvas");
+        ctx.putImageData(imgData, 0, 0);
     }
     
     /**
