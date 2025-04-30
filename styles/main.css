@@ -33,3 +33,46 @@ body {
 .edit-mode #gradientCanvas {
     cursor: move;
 }
+
+/* fixed full‑height right sidebar */
+.sidebar{
+    position:fixed;
+    top:0;
+    right:0;
+    width:420px;           /* widened sidebar */
+    height:100vh;
+    overflow-y:auto;
+    padding:1rem;         /* 1 rem on all sides -> gap bottom included */
+    z-index:1030;         /* above canvas */
+    background:transparent; /* show page background so card floats */
+}
+
+/* Keep card full width of sidebar */
+.sidebar .card{
+    width:100%;
+    height:100%;            /* fill sidebar’s content height */
+    display:flex;           /* allow body to flex‑grow */
+    flex-direction:column;
+}
+
+/* scrollable body when content exceeds viewport */
+.sidebar .card-body{
+    flex:1 1 auto;        /* take remaining height */
+    overflow-y:auto;
+}
+
+/* left area takes remaining width and centres canvas */
+.main-area{
+    margin-right:420px;    /* keep in sync with sidebar width */
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+/* optional – remove bottom margin of canvas column on large screens */
+@media (min-width:992px){
+    .main-area{
+        margin-bottom:0!important;
+    }
+}

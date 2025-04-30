@@ -174,6 +174,142 @@ class ColorPalette {
                 return this.generate('analogous', count);
         }
         
+        this.lastGeneratedColors = colors;
         return colors;
+    }
+
+    /**
+     * Adjust HSL values of all generated colors
+     * @param {Object} options - Adjustment options
+     * @returns {Array} - Array of adjusted colors
+     */
+    adjustColors(options = {}) {
+        // If no colors have been generated yet, generate some
+        if (!this.lastGeneratedColors || this.lastGeneratedColors.length === 0) {
+            this.lastGeneratedColors = this.generate('analogous', 5);
+        }
+        
+        // Clone the colors to avoid modifying the originals
+        const adjustedColors = this.lastGeneratedColors.map(color => {
+            // Parse current HSL values
+            const hsl = this.hexToHSL(color.hex);
+            
+            // Apply adjustments
+            if (options.hue !== undefined) {
+                hsl.h = (hsl.h + options.hue) % 360;
+                if (hsl.h < 0) hsl.h += 360; // Handle negative hue
+            }
+            
+            if (options.saturation !== undefined) {
+                hsl.s = Math.max(0, Math.min(100, hsl.s + options.saturation));
+            }
+            
+            if (options.lightness !== undefined) {
+                hsl.l = Math.max(0, Math.min(100, hsl.l + options.lightness));
+            }
+            
+            // Convert back to hex
+            const newHex = this.hslToHex(hsl.h, hsl.s, hsl.l);
+            
+            return {
+                hex: newHex,
+                hsl: hsl
+            };
+        });
+        
+        // Save the adjusted colors for future adjustments
+        this.lastGeneratedColors = adjustedColors;
+        
+        return adjustedColors;
+    }
+    
+    /**
+     * Convert hex color to HSL
+     * @param {String} hex - Hex color code
+     * @returns {Object} - HSL values
+     */
+    hexToHSL(hex) {
+        // Remove # if present
+        hex = hex.replace('#', '');
+        
+        // Convert hex to RGB
+        const r = parseInt(hex.substring(0, 2), 16) / 255;
+        const g = parseInt(hex.substring(2, 4), 16) / 255;
+        const b = parseInt(hex.substring(4, 6), 16) / 255;
+        
+        // Find max and min values
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        
+        // Calculate lightness
+        let h, s, l = (max + min) / 2;
+        
+        if (max === min) {
+            // Achromatic
+            h = s = 0;
+        } else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            
+            h *= 60;
+        }
+        
+        // Convert to percentages and round
+        s = Math.round(s * 100);
+        l = Math.round(l * 100);
+        h = Math.round(h);
+        
+        return { h, s, l };
+    }
+    
+    /**
+     * Convert HSL to hex color
+     * @param {Number} h - Hue (0-360)
+     * @param {Number} s - Saturation (0-100)
+     * @param {Number} l - Lightness (0-100)
+     * @returns {String} - Hex color code
+     */
+    hslToHex(h, s, l) {
+        // Convert to 0-1 range
+        h /= 360;
+        s /= 100;
+        l /= 100;
+        
+        let r, g, b;
+        
+        if (s === 0) {
+            // Achromatic
+            r = g = b = l;
+        } else {
+            const hue2rgb = (p, q, t) => {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1/6) return p + (q - p) * 6 * t;
+                if (t < 1/2) return q;
+                if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                return p;
+            };
+            
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+        }
+        
+        // Convert to hex
+        const toHex = x => {
+            const hex = Math.round(x * 255).toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        };
+        
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
     }
 }

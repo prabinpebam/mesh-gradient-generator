@@ -2,160 +2,163 @@
  * UI Controller for the Mesh Gradient Generator
  */
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize mesh gradient
-    const meshGradient = new MeshGradient();
-    
-    // UI Elements
+    // Elements
+    const canvas = document.getElementById('gradientCanvas');
     const generateBtn = document.getElementById('generateBtn');
-    const cellCount = document.getElementById('cellCount');
+    const cellCountSlider = document.getElementById('cellCount');
     const cellCountValue = document.getElementById('cellCountValue');
-    const blurAmount = document.getElementById('blurAmount');
+    const minCellCount = document.getElementById('minCellCount');
+    const maxCellCount = document.getElementById('maxCellCount');
+    const blurAmountSlider = document.getElementById('blurAmount');
     const blurAmountValue = document.getElementById('blurAmountValue');
-    const colorHarmony = document.getElementById('colorHarmony');
+    const maxBlurValue = document.getElementById('maxBlurValue');
+    const colorHarmonySelect = document.getElementById('colorHarmony');
     const editModeToggle = document.getElementById('editModeToggle');
     const exportPngBtn = document.getElementById('exportPngBtn');
-    const canvasWidth = document.getElementById('canvasWidth');
-    const canvasHeight = document.getElementById('canvasHeight');
-    const resizeCanvas = document.getElementById('resizeCanvas');
+    const canvasWidthInput = document.getElementById('canvasWidth');
+    const canvasHeightInput = document.getElementById('canvasHeight');
+    const resizeCanvasBtn = document.getElementById('resizeCanvas');
     
-    // Set initial blur slider max value based on 50% of larger canvas dimension
-    blurAmount.max = meshGradient.maxBlurAmount;
+    // Initialize gradient generator
+    const meshGradient = new MeshGradient();
     
-    // Update the blur amount label to indicate maximum
-    blurAmountValue.textContent = blurAmount.value;
-    document.querySelector('.mb-3:nth-child(4) .d-flex small:last-child').textContent = meshGradient.maxBlurAmount;
+    // Initial UI setup
+    function initUI() {
+        // Get initial constraints
+        const constraints = meshGradient.getConstraints();
+        
+        // Update cell count slider
+        cellCountSlider.min = constraints.cells.min;
+        cellCountSlider.max = constraints.cells.max;
+        cellCountSlider.value = constraints.cells.current;
+        cellCountValue.textContent = constraints.cells.current;
+        minCellCount.textContent = constraints.cells.min;
+        maxCellCount.textContent = constraints.cells.max;
+        
+        // Update blur amount slider - make sure we're using the actual calculated value
+        const actualBlurValue = meshGradient.calculateDefaultBlurAmount();
+        blurAmountSlider.min = 0;
+        blurAmountSlider.max = constraints.blur.max;
+        blurAmountSlider.value = actualBlurValue;
+        blurAmountValue.textContent = actualBlurValue;
+        maxBlurValue.textContent = constraints.blur.max;
+        
+        // Apply the correct blur amount to the gradient
+        meshGradient.setBlurAmount(actualBlurValue);
+        
+        // Generate initial gradient
+        meshGradient.generate();
+    }
     
-    // Generate initial gradient
-    meshGradient.generate();
-    
-    // Generate new gradient
+    // Generate button click
     generateBtn.addEventListener('click', function() {
-        meshGradient.generate({
-            cellCount: parseInt(cellCount.value),
-            blurAmount: parseInt(blurAmount.value),
-            colorHarmony: colorHarmony.value
-        });
+        meshGradient.generate();
     });
     
-    // Update cell count display
-    cellCount.addEventListener('input', function() {
-        cellCountValue.textContent = cellCount.value;
+    // Cell count slider change
+    cellCountSlider.addEventListener('input', function() {
+        const count = parseInt(this.value);
+        cellCountValue.textContent = count;
+        meshGradient.setCellCount(count);
     });
     
-    // Update blur amount display and apply
-    blurAmount.addEventListener('input', function() {
-        blurAmountValue.textContent = blurAmount.value;
-        meshGradient.setBlurAmount(parseInt(blurAmount.value));
+    // Blur amount slider change
+    blurAmountSlider.addEventListener('input', function() {
+        const amount = parseInt(this.value);
+        blurAmountValue.textContent = amount;
+        meshGradient.setBlurAmount(amount);
     });
     
-    // Change color harmony
-    colorHarmony.addEventListener('change', function() {
-        meshGradient.setColorHarmony(colorHarmony.value);
+    // Color harmony select change
+    colorHarmonySelect.addEventListener('change', function() {
+        meshGradient.setColorHarmony(this.value);
     });
     
-    // Toggle edit mode
+    // HSL Adjustment Buttons
+    document.getElementById('hueDecrease').addEventListener('click', function() {
+        meshGradient.adjustColors({ hue: -10 }); // Decrease hue by 10 degrees
+    });
+    
+    document.getElementById('hueIncrease').addEventListener('click', function() {
+        meshGradient.adjustColors({ hue: 10 }); // Increase hue by 10 degrees
+    });
+    
+    document.getElementById('satDecrease').addEventListener('click', function() {
+        meshGradient.adjustColors({ saturation: -5 }); // Decrease saturation by 5%
+    });
+    
+    document.getElementById('satIncrease').addEventListener('click', function() {
+        meshGradient.adjustColors({ saturation: 5 }); // Increase saturation by 5%
+    });
+    
+    document.getElementById('lightDecrease').addEventListener('click', function() {
+        meshGradient.adjustColors({ lightness: -5 }); // Decrease lightness by 5%
+    });
+    
+    document.getElementById('lightIncrease').addEventListener('click', function() {
+        meshGradient.adjustColors({ lightness: 5 }); // Increase lightness by 5%
+    });
+    
+    // Edit mode toggle
     editModeToggle.addEventListener('change', function() {
-        meshGradient.setEditMode(editModeToggle.checked);
+        meshGradient.setEditMode(this.checked);
     });
     
-    // Export as PNG
+    // Export PNG button click
     exportPngBtn.addEventListener('click', function() {
         meshGradient.exportAsPNG();
     });
     
-    // Resize canvas
-    resizeCanvas.addEventListener('click', function() {
-        const width = parseInt(canvasWidth.value);
-        const height = parseInt(canvasHeight.value);
-        if (width > 0 && height > 0) {
-            // Resize canvas and get updated max blur amount
-            const newMaxBlur = meshGradient.resizeCanvas(width, height);
-            
-            // Update blur slider max value
-            blurAmount.max = newMaxBlur;
-            
-            // Update the maximum blur label
-            document.querySelector('.mb-3:nth-child(4) .d-flex small:last-child').textContent = newMaxBlur;
-            
-            // If current blur value exceeds new max, update it
-            if (parseInt(blurAmount.value) > newMaxBlur) {
-                blurAmount.value = newMaxBlur;
-                blurAmountValue.textContent = newMaxBlur;
-            }
-            
-            meshGradient.generate({
-                cellCount: parseInt(cellCount.value),
-                blurAmount: parseInt(blurAmount.value),
-                colorHarmony: colorHarmony.value
-            });
+    // Canvas resize
+    resizeCanvasBtn.addEventListener('click', function() {
+        const width = parseInt(canvasWidthInput.value);
+        const height = parseInt(canvasHeightInput.value);
+        
+        if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+            alert('Please enter valid dimensions');
+            return;
         }
+        
+        // Resize and get updated constraints
+        const newConstraints = meshGradient.resizeCanvas(width, height);
+        
+        // Get the updated constraints for the UI
+        const constraints = meshGradient.getConstraints();
+        
+        // Update blur slider with new max and current values
+        blurAmountSlider.min = constraints.blur.min;
+        blurAmountSlider.max = constraints.blur.max;
+        blurAmountSlider.value = constraints.blur.current;
+        blurAmountValue.textContent = constraints.blur.current;
+        maxBlurValue.textContent = constraints.blur.max;
+        
+        // Re-render gradient with new size
+        meshGradient.render();
     });
     
-    // Canvas and mouse events for edit mode
-    const canvas = document.getElementById('gradientCanvas');
-    let isDragging = false;
-    
-    // Mouse events for edit mode (drag Voronoi centers)
+    // Mouse events for cell manipulation
     canvas.addEventListener('mousedown', function(e) {
-        if (!meshGradient.editMode) return;
-        
-        isDragging = true;
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        
         meshGradient.startDrag(x, y);
     });
     
     canvas.addEventListener('mousemove', function(e) {
-        if (!isDragging) return;
-        
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        
         meshGradient.drag(x, y);
     });
     
     canvas.addEventListener('mouseup', function() {
-        isDragging = false;
         meshGradient.endDrag();
     });
     
     canvas.addEventListener('mouseleave', function() {
-        isDragging = false;
         meshGradient.endDrag();
     });
     
-    // Touch events for mobile support
-    canvas.addEventListener('touchstart', function(e) {
-        if (!meshGradient.editMode) return;
-        e.preventDefault();
-        
-        isDragging = true;
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
-        
-        meshGradient.startDrag(x, y);
-    });
-    
-    canvas.addEventListener('touchmove', function(e) {
-        if (!isDragging) return;
-        e.preventDefault();
-        
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
-        
-        meshGradient.drag(x, y);
-    });
-    
-    canvas.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        isDragging = false;
-        meshGradient.endDrag();
-    });
+    // Initialize UI
+    initUI();
 });

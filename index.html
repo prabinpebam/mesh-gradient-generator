@@ -12,68 +12,75 @@
     <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
-    <div class="container-fluid py-4">
-        <h1 class="text-center mb-4">Mesh Gradient Generator</h1>
-        
+    <div class="container-fluid">
         <div class="row">
             <!-- Canvas Container -->
-            <div class="col-lg-8 mb-4">
-                <div class="canvas-container bg-light p-2 rounded shadow-sm">
+            <div class="col-lg-8 main-area">
+                <div class="canvas-container bg-light p-2 rounded">
                     <canvas id="gradientCanvas"></canvas>
                 </div>
             </div>
 
-            <!-- Controls -->
-            <div class="col-lg-4">
+            <!-- Controls  (fixed‑right sidebar) -->
+            <div class="col-lg-4 sidebar">
                 <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">Controls</h5>
-                    </div>
                     <div class="card-body">
-                        <!-- Generate Button -->
-                        <button id="generateBtn" class="btn btn-success w-100 mb-3">
-                            <i class="bi bi-magic"></i> Generate New Gradient
-                        </button>
-                        
+                        <!-- NEW title -->
+                        <h2 class="text-center mb-4">
+                            Mesh Gradient Generator<br>
+                            <small class="text-muted">by Prabin Pebam</small>
+                        </h2>
+
                         <!-- Canvas Size -->
                         <div class="mb-3">
                             <label class="form-label fw-bold">Canvas Size</label>
-                            <div class="row g-2">
-                                <div class="col-6">
+                            <div class="row g-2 align-items-end">
+                                <!-- Width -->
+                                <div class="col-4">
                                     <div class="input-group">
-                                        <span class="input-group-text">Width</span>
+                                        <span class="input-group-text p-2">
+                                            <i class="bi bi-arrows" title="Width"></i>
+                                        </span>
                                         <input type="number" id="canvasWidth" class="form-control" value="800">
                                     </div>
                                 </div>
-                                <div class="col-6">
+                                <!-- Height -->
+                                <div class="col-4">
                                     <div class="input-group">
-                                        <span class="input-group-text">Height</span>
+                                        <span class="input-group-text p-2">
+                                            <i class="bi bi-arrows-vertical" title="Height"></i>
+                                        </span>
                                         <input type="number" id="canvasHeight" class="form-control" value="600">
                                     </div>
                                 </div>
+                                <!-- Apply button -->
+                                <div class="col-4 d-grid">
+                                    <button id="resizeCanvas" class="btn btn-outline-secondary">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </div>
                             </div>
-                            <button id="resizeCanvas" class="btn btn-outline-secondary mt-2 w-100">Apply Size</button>
                         </div>
 
                         <!-- Voronoi Settings -->
                         <div class="mb-3">
                             <label class="form-label fw-bold">Voronoi Cells</label>
-                            <input type="range" class="form-range" id="cellCount" min="5" max="100" value="20">
+                            <input type="range" class="form-range" id="cellCount" min="2" max="20" value="5">
                             <div class="d-flex justify-content-between">
-                                <small>5</small>
-                                <small id="cellCountValue">20</small>
-                                <small>100</small>
+                                <small id="minCellCount">2</small>
+                                <small id="cellCountValue">5</small>
+                                <small id="maxCellCount">20</small>
                             </div>
                         </div>
                         
                         <!-- Blur Amount -->
                         <div class="mb-3">
                             <label class="form-label fw-bold">Blur Amount</label>
-                            <input type="range" class="form-range" id="blurAmount" min="0" max="50" value="10">
+                            <input type="range" class="form-range" id="blurAmount" min="0" max="400" value="60">
                             <div class="d-flex justify-content-between">
                                 <small>0</small>
-                                <small id="blurAmountValue">10</small>
-                                <small>50</small>
+                                <small id="blurAmountValue">60</small>
+                                <small id="maxBlurValue">400</small>
                             </div>
                         </div>
                         
@@ -91,6 +98,47 @@
                             </select>
                         </div>
                         
+                        <!-- Color Adjustments -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Color Adjustments</label>
+                            
+                            <div class="row align-items-center mb-2">
+                                <div class="col-4">
+                                    <label class="col-form-label">Hue</label>
+                                </div>
+                                <div class="col-8">
+                                    <div class="btn-group w-100">
+                                        <button class="btn btn-sm btn-outline-secondary" id="hueDecrease">-</button>
+                                        <button class="btn btn-sm btn-outline-secondary" id="hueIncrease">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row align-items-center mb-2">
+                                <div class="col-4">
+                                    <label class="col-form-label">Saturation</label>
+                                </div>
+                                <div class="col-8">
+                                    <div class="btn-group w-100">
+                                        <button class="btn btn-sm btn-outline-secondary" id="satDecrease">-</button>
+                                        <button class="btn btn-sm btn-outline-secondary" id="satIncrease">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row align-items-center">
+                                <div class="col-4">
+                                    <label class="col-form-label">Lightness</label>
+                                </div>
+                                <div class="col-8">
+                                    <div class="btn-group w-100">
+                                        <button class="btn btn-sm btn-outline-secondary" id="lightDecrease">-</button>
+                                        <button class="btn btn-sm btn-outline-secondary" id="lightIncrease">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Edit Mode -->
                         <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="editModeToggle">
@@ -98,6 +146,11 @@
                                 Show Cell Centers and Borders
                             </label>
                         </div>
+
+                        <!-- Generate Button -->
+                        <button id="generateBtn" class="btn btn-success w-100 mb-3">
+                            <i class="bi bi-magic"></i> Generate New Gradient
+                        </button>
                         
                         <!-- Export Options -->
                         <div class="d-grid gap-2">
