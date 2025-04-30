@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mesh Gradient Generator</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <h1 class="text-center mb-4">Mesh Gradient Generator</h1>
+        
+        <div class="row">
+            <!-- Canvas Container -->
+            <div class="col-lg-8 mb-4">
+                <div class="canvas-container bg-light p-2 rounded shadow-sm">
+                    <canvas id="gradientCanvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Controls</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Generate Button -->
+                        <button id="generateBtn" class="btn btn-success w-100 mb-3">
+                            <i class="bi bi-magic"></i> Generate New Gradient
+                        </button>
+                        
+                        <!-- Canvas Size -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Canvas Size</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <div class="input-group">
+                                        <span class="input-group-text">Width</span>
+                                        <input type="number" id="canvasWidth" class="form-control" value="800">
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="input-group">
+                                        <span class="input-group-text">Height</span>
+                                        <input type="number" id="canvasHeight" class="form-control" value="600">
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="resizeCanvas" class="btn btn-outline-secondary mt-2 w-100">Apply Size</button>
+                        </div>
+
+                        <!-- Voronoi Settings -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Voronoi Cells</label>
+                            <input type="range" class="form-range" id="cellCount" min="5" max="100" value="20">
+                            <div class="d-flex justify-content-between">
+                                <small>5</small>
+                                <small id="cellCountValue">20</small>
+                                <small>100</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Blur Amount -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Blur Amount</label>
+                            <input type="range" class="form-range" id="blurAmount" min="0" max="50" value="10">
+                            <div class="d-flex justify-content-between">
+                                <small>0</small>
+                                <small id="blurAmountValue">10</small>
+                                <small>50</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Color Harmony -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Color Harmony</label>
+                            <select id="colorHarmony" class="form-select">
+                                <option value="analogous">Analogous</option>
+                                <option value="complementary">Complementary</option>
+                                <option value="triadic">Triadic</option>
+                                <option value="tetradic">Tetradic</option>
+                                <option value="monochromatic">Monochromatic</option>
+                                <option value="split-complementary">Split Complementary</option>
+                                <option value="random">Random</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Edit Mode -->
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="editModeToggle">
+                            <label class="form-check-label" for="editModeToggle">
+                                Show Cell Centers and Borders
+                            </label>
+                        </div>
+                        
+                        <!-- Export Options -->
+                        <div class="d-grid gap-2">
+                            <button id="exportPngBtn" class="btn btn-outline-primary">
+                                <i class="bi bi-download"></i> Export as PNG
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- d3-delaunay for Voronoi diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/d3-delaunay@6"></script>
+    
+    <!-- App Scripts -->
+    <script src="js/colorPalette.js"></script>
+    <script src="js/voronoi.js"></script>
+    <script src="js/meshGradient.js"></script>
+    <script src="js/ui.js"></script>
+</body>
+</html>

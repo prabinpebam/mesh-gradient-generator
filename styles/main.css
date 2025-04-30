@@ -1,0 +1,35 @@
+/* Custom styles for Mesh Gradient Generator */
+
+body {
+    background-color: #f8f9fa;
+}
+
+.canvas-container {
+    position: relative;
+    width: 100%;
+    text-align: center;
+    overflow: hidden;
+}
+
+#gradientCanvas {
+    max-width: 100%;
+    height: auto;
+    cursor: crosshair;
+}
+
+.form-range::-webkit-slider-thumb {
+    background: #0d6efd;
+}
+
+.form-range::-moz-range-thumb {
+    background: #0d6efd;
+}
+
+.form-range::-ms-thumb {
+    background: #0d6efd;
+}
+
+/* Edit mode styles */
+.edit-mode #gradientCanvas {
+    cursor: move;
+}
