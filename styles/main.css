@@ -76,3 +76,5 @@ body {
         margin-bottom:0!important;
     }
 }
+
+#distortionParams.d-none{display:none;}

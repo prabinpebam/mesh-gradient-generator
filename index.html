@@ -147,17 +147,31 @@
                             </label>
                         </div>
 
+                        <!-- Distortion -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Distortion</label>
+                            <select id="distortionType" class="form-select">
+                                <option value="none" selected>None</option>
+                                <option value="polar">Polar / Swirl</option>
+                                <option value="ripple">Ripple</option>
+                                <option value="wave">Wave</option>
+                                <option value="twist">Twist</option>
+                                <option value="bulge">Bulge / Pinch</option>
+                                <option value="barrel">Barrel / Fisheye</option>
+                            </select>
+                            <!-- Parameters - shown dynamically -->
+                            <div id="distortionParams" class="mt-2 d-none">
+                                <!-- JS will inject parameter controls here -->
+                            </div>
+                        </div>
+
                         <!-- Generate Button -->
                         <button id="generateBtn" class="btn btn-success w-100 mb-3">
                             <i class="bi bi-magic"></i> Generate New Gradient
                         </button>
-                        
-                        <!-- Export Options -->
-                        <div class="d-grid gap-2">
-                            <button id="exportPngBtn" class="btn btn-outline-primary">
-                                <i class="bi bi-download"></i> Export as PNG
-                            </button>
-                        </div>
+                        <button id="exportPngBtn" class="btn btn-outline-primary">
+                            <i class="bi bi-download"></i> Export as PNG
+                        </button>
                     </div>
                 </div>
             </div>
@@ -169,9 +183,17 @@
     <!-- d3-delaunay for Voronoi diagrams -->
     <script src="https://cdn.jsdelivr.net/npm/d3-delaunay@6"></script>
     
-    <!-- App Scripts -->
+    <!-- App Scripts - proper order matters! -->
     <script src="js/colorPalette.js"></script>
     <script src="js/voronoi.js"></script>
+    <!-- load distortion helpers -->
+    <script src="js/distortion/ripple.js"></script>
+    <script src="js/distortion/polar.js"></script>
+    <script src="js/distortion/wave.js"></script>
+    <script src="js/distortion/twist.js"></script>
+    <script src="js/distortion/bulge.js"></script>
+    <script src="js/distortion/barrel.js"></script>
+    <script src="js/distortion/distortionManager.js"></script>
     <script src="js/meshGradient.js"></script>
     <script src="js/ui.js"></script>
 </body>

@@ -26,6 +26,16 @@ class MeshGradient {
         this.dragSiteIndex = -1;
 
         this.currentColors = [];   // <-- remember last palette
+
+        this.offCanvas = document.createElement('canvas');
+        this.offCanvas.width  = this.width;
+        this.offCanvas.height = this.height;
+        this.offCtx = this.offCanvas.getContext('2d');
+
+        this.distortions = new DistortionManager();
+
+        console.log("MeshGradient constructor", this);
+        console.log("DistortionManager initialized", this.distortions);
     }
     
     /**
@@ -69,6 +79,11 @@ class MeshGradient {
         this.blurAmount = this.calculateDefaultBlurAmount(); // nothing extra
 
         // 3️⃣ Return fresh constraints for UI
+        if (this.offCanvas) {
+            this.offCanvas.width = width;
+            this.offCanvas.height = height;
+        }
+
         return {
             maxBlurAmount: this.maxBlurAmount,
             currentBlurAmount: this.blurAmount,
@@ -143,42 +158,62 @@ class MeshGradient {
      * @param {Array} colors - Array of colors for cells
      */
     render(colors = null) {
-        // Use stored palette when none supplied
+        console.log("MeshGradient.render called", {colors, editMode: this.editMode});
+        
+        // Clear original canvas
+        this.offCtx.clearRect(0, 0, this.width, this.height);
+        
+        // Get Voronoi cells
+        const cells = this.voronoi.getCells();
+        console.log("Voronoi cells:", cells.length);
+        
+        // Use stored palette or generate new one
         if (!colors || colors.length === 0) {
             if (this.currentColors && this.currentColors.length === this.cellCount) {
                 colors = this.currentColors;
             } else {
                 colors = this.colorPalette.generate(this.colorHarmony, this.cellCount);
-                this.currentColors = colors;            // keep in sync
+                this.currentColors = colors;
             }
-        }
-
-        // Clear canvas
-        this.ctx.clearRect(0, 0, this.width, this.height);
-        
-        // Get Voronoi cells
-        const cells = this.voronoi.getCells();
-        
-        if (!colors) {
-            colors = this.colorPalette.generate(this.colorHarmony, this.cellCount);
+        } else {
+            this.currentColors = colors;
         }
         
-        // Draw cells
+        console.log("Using colors:", colors.length);
+        
+        // Draw cells to off-screen canvas
         cells.forEach((cell, index) => {
             const color = colors[index % colors.length];
-            this.ctx.beginPath();
+            this.offCtx.beginPath();
             const path = new Path2D(cell.path);
-            this.ctx.fillStyle = color.hex;
-            this.ctx.fill(path);
+            this.offCtx.fillStyle = color.hex;
+            this.offCtx.fill(path);
         });
         
-        // Apply blur effect if blur amount > 0, regardless of edit mode
+        console.log("Cells drawn to offscreen canvas");
+        
+        // Apply blur effect to off-screen canvas
         if (this.blurAmount > 0) {
+            console.log("Applying blur:", this.blurAmount);
+            // Fix: Pass the offscreen canvas, not the context
             this.applyUniformBlur(this.blurAmount);
         }
         
-        // If in edit mode, draw cell borders and centers on top of the blur
-        if (this.editMode) {
+        // Apply distortion pipeline from off-screen to main canvas
+        this.ctx.clearRect(0, 0, this.width, this.height);
+        console.log("Applying distortion", {
+            hasActive: this.distortions.hasActive(),
+            stack: this.distortions.stack
+        });
+        
+        this.distortions.apply(this.offCanvas, this.ctx);
+        
+        // Add debug visual to see if anything renders at all
+        this.ctx.strokeStyle = "red";
+        this.ctx.strokeRect(0, 0, this.width, this.height);
+        
+        // Draw edit mode overlays if enabled and no distortions
+        if (this.editMode && !this.distortions.hasActive()) {
             this.drawCellBorders(cells);
             this.drawSites(this.voronoi.sites);
         }
@@ -189,6 +224,8 @@ class MeshGradient {
      * @param {Number} blurAmount - Amount of blur to apply
      */
     applyUniformBlur(blurAmount) {
+        console.log("applyUniformBlur called with amount:", blurAmount);
+        
         // Create a temporary canvas with padding for the blur
         const tempCanvas = document.createElement('canvas');
         const padding = Math.ceil(blurAmount * 2.5); // Generous padding to avoid edge artifacts
@@ -196,8 +233,8 @@ class MeshGradient {
         tempCanvas.height = this.height + padding * 2;
         const tempCtx = tempCanvas.getContext('2d');
         
-        // Copy original content to the center of temp canvas
-        tempCtx.drawImage(this.canvas, 0, 0, this.width, this.height, padding, padding, this.width, this.height);
+        // Copy original content from offscreen canvas to the center of temp canvas
+        tempCtx.drawImage(this.offCanvas, 0, 0, this.width, this.height, padding, padding, this.width, this.height);
         
         // Extend edge pixels to padding area to avoid dark edges
         this.extendEdgePixels(tempCtx, padding);
@@ -207,9 +244,11 @@ class MeshGradient {
         tempCtx.drawImage(tempCanvas, 0, 0);
         tempCtx.filter = 'none';
         
-        // Copy the blurred content back to the original canvas
-        this.ctx.clearRect(0, 0, this.width, this.height);
-        this.ctx.drawImage(tempCanvas, padding, padding, this.width, this.height, 0, 0, this.width, this.height);
+        // Copy the blurred content back to the offscreen canvas
+        this.offCtx.clearRect(0, 0, this.width, this.height);
+        this.offCtx.drawImage(tempCanvas, padding, padding, this.width, this.height, 0, 0, this.width, this.height);
+        
+        console.log("Blur applied to offscreen canvas");
     }
     
     /**
@@ -393,5 +432,15 @@ class MeshGradient {
         });
         
         return this.cellCount;
+    }
+
+    setDistortionStack(stack){
+        console.log("Setting distortion stack:", stack);
+        this.distortions.setStack(stack);
+        // auto disable overlay when active
+        if (this.distortions.hasActive() && this.editMode){
+            this.setEditMode(false);
+        }
+        this.render();
     }
 }
