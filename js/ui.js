@@ -24,29 +24,24 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initial UI setup
     function initUI() {
-        // Get initial constraints
         const constraints = meshGradient.getConstraints();
-        
-        // Update cell count slider
-        cellCountSlider.min = constraints.cells.min;
-        cellCountSlider.max = constraints.cells.max;
+
+        // Cell slider ------------------------
+        cellCountSlider.min  = constraints.cells.min;
+        cellCountSlider.max  = constraints.cells.max;
         cellCountSlider.value = constraints.cells.current;
         cellCountValue.textContent = constraints.cells.current;
-        minCellCount.textContent = constraints.cells.min;
-        maxCellCount.textContent = constraints.cells.max;
-        
-        // Update blur amount slider - make sure we're using the actual calculated value
-        const actualBlurValue = meshGradient.calculateDefaultBlurAmount();
-        blurAmountSlider.min = 0;
-        blurAmountSlider.max = constraints.blur.max;
-        blurAmountSlider.value = actualBlurValue;
-        blurAmountValue.textContent = actualBlurValue;
-        maxBlurValue.textContent = constraints.blur.max;
-        
-        // Apply the correct blur amount to the gradient
-        meshGradient.setBlurAmount(actualBlurValue);
-        
-        // Generate initial gradient
+        minCellCount.textContent   = constraints.cells.min;
+        maxCellCount.textContent   = constraints.cells.max;
+
+        // Blur slider ------------------------
+        blurAmountSlider.min  = constraints.blur.min;
+        blurAmountSlider.max  = constraints.blur.max;
+        blurAmountSlider.value = constraints.blur.current;
+        blurAmountValue.textContent = constraints.blur.current;
+        maxBlurValue.textContent    = constraints.blur.max;
+
+        // Initial render ---------------------
         meshGradient.generate();
     }
     
@@ -110,29 +105,25 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Canvas resize
-    resizeCanvasBtn.addEventListener('click', function() {
-        const width = parseInt(canvasWidthInput.value);
+    resizeCanvasBtn.addEventListener('click', () => {
+        const width  = parseInt(canvasWidthInput.value);
         const height = parseInt(canvasHeightInput.value);
-        
+
         if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
             alert('Please enter valid dimensions');
             return;
         }
-        
-        // Resize and get updated constraints
-        const newConstraints = meshGradient.resizeCanvas(width, height);
-        
-        // Get the updated constraints for the UI
-        const constraints = meshGradient.getConstraints();
-        
-        // Update blur slider with new max and current values
-        blurAmountSlider.min = constraints.blur.min;
-        blurAmountSlider.max = constraints.blur.max;
-        blurAmountSlider.value = constraints.blur.current;
-        blurAmountValue.textContent = constraints.blur.current;
-        maxBlurValue.textContent = constraints.blur.max;
-        
-        // Re-render gradient with new size
+
+        const constraints = meshGradient.resizeCanvas(width, height); // fresh values
+
+        // Reflect new blur limits
+        blurAmountSlider.min  = constraints.minBlurAmount ?? 0; // always 0
+        blurAmountSlider.max  = constraints.maxBlurAmount;
+        blurAmountSlider.value = constraints.currentBlurAmount;
+        blurAmountValue.textContent = constraints.currentBlurAmount;
+        maxBlurValue.textContent    = constraints.maxBlurAmount;
+
+        // Re‑render with updated canvas
         meshGradient.render();
     });
     

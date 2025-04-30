@@ -24,6 +24,8 @@ class MeshGradient {
         
         // For edit mode
         this.dragSiteIndex = -1;
+
+        this.currentColors = [];   // <-- remember last palette
     }
     
     /**
@@ -52,30 +54,21 @@ class MeshGradient {
      * @param {Number} height - New height
      */
     resizeCanvas(width, height) {
-        this.width = width;
+        this.width  = width;
         this.height = height;
-        
-        this.canvas.width = width;
+
+        this.canvas.width  = width;
         this.canvas.height = height;
-        
+
         this.voronoi.setDimensions(width, height);
-        
-        // Update max blur amount when canvas is resized
+
+        // 1️⃣ Re‑compute absolute limits
         this.maxBlurAmount = this.calculateMaxBlurAmount();
-        
-        // Update blur amount to new default when canvas is resized
-        const oldBlurAmount = this.blurAmount;
-        this.blurAmount = this.calculateDefaultBlurAmount();
-        
-        // If the UI had previously set a custom blur amount, maintain the same proportion
-        if (oldBlurAmount > 0) {
-            const proportion = oldBlurAmount / this.maxBlurAmount * 2; // Proportion of max (which is 50%)
-            if (proportion > 0.3) { // If it was set to more than 15% (0.3 of max)
-                this.blurAmount = Math.min(Math.round(this.maxBlurAmount * proportion), this.maxBlurAmount);
-            }
-        }
-        
-        // Return an object with all values needed for UI updates
+
+        // 2️⃣ Re‑establish a fresh default (15 % of larger side)
+        this.blurAmount = this.calculateDefaultBlurAmount(); // nothing extra
+
+        // 3️⃣ Return fresh constraints for UI
         return {
             maxBlurAmount: this.maxBlurAmount,
             currentBlurAmount: this.blurAmount,
@@ -140,8 +133,8 @@ class MeshGradient {
         // Generate colors based on harmony type
         this.colorPalette.randomizeBaseHue();
         const colors = this.colorPalette.generate(this.colorHarmony, this.cellCount);
-        
-        // Render the gradient
+
+        this.currentColors = colors;         // <-- save palette
         this.render(colors);
     }
     
@@ -150,6 +143,16 @@ class MeshGradient {
      * @param {Array} colors - Array of colors for cells
      */
     render(colors = null) {
+        // Use stored palette when none supplied
+        if (!colors || colors.length === 0) {
+            if (this.currentColors && this.currentColors.length === this.cellCount) {
+                colors = this.currentColors;
+            } else {
+                colors = this.colorPalette.generate(this.colorHarmony, this.cellCount);
+                this.currentColors = colors;            // keep in sync
+            }
+        }
+
         // Clear canvas
         this.ctx.clearRect(0, 0, this.width, this.height);
         
@@ -360,8 +363,7 @@ class MeshGradient {
     adjustColors(options = {}) {
         // Get current colors
         const colors = this.colorPalette.adjustColors(options);
-        
-        // Re-render with adjusted colors
+        this.currentColors = colors;          // keep palette updated
         this.render(colors);
         
         return colors;
@@ -374,6 +376,7 @@ class MeshGradient {
     setColorHarmony(harmonyType) {
         this.colorHarmony = harmonyType;
         const colors = this.colorPalette.generate(this.colorHarmony, this.cellCount);
+        this.currentColors = colors;          // store new palette
         this.render(colors);
     }
     
