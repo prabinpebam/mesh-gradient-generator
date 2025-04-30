@@ -1,12 +1,13 @@
 const DistortionTwist = {
-	/**
-	 * opts: {centerX, centerY, maxAngle, radius}
-	 */
+	/* opts: {centerX, centerY, maxAngle, radius}
+	   maxAngle is expressed in turns (1 turn = 2π) */
 	apply(src, dstCtx, opts = {}) {
-		const w=src.width, h=src.height;
-		const cx=(opts.centerX??0.5)*w, cy=(opts.centerY??0.5)*h;
-		const maxA = (opts.maxAngle??Math.PI);      // rad
-		const rad  = opts.radius??Math.min(w,h)/2;
+		const w = src.width, h = src.height;
+		const cx = (opts.centerX ?? 0.5) * w;
+		const cy = (opts.centerY ?? 0.5) * h;
+
+		const maxA = (opts.maxAngle ?? 1) * Math.PI * 2;   // turns→radians
+		const rad  = opts.radius ?? Math.min(w,h)/2;
 
 		const srcData = src.getContext('2d').getImageData(0,0,w,h).data;
 		const outImg  = dstCtx.createImageData(w,h);

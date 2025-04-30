@@ -208,10 +208,6 @@ class MeshGradient {
         
         this.distortions.apply(this.offCanvas, this.ctx);
         
-        // Add debug visual to see if anything renders at all
-        this.ctx.strokeStyle = "red";
-        this.ctx.strokeRect(0, 0, this.width, this.height);
-        
         // Draw edit mode overlays if enabled and no distortions
         if (this.editMode && !this.distortions.hasActive()) {
             this.drawCellBorders(cells);

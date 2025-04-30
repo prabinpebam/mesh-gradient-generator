@@ -12,18 +12,19 @@
     <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Canvas Container -->
-            <div class="col-lg-8 main-area">
-                <div class="canvas-container bg-light p-2 rounded">
+    <!-- full width, no gutters -->
+    <div class="container-fluid px-0">
+        <div class="d-flex layout-flex">         <!-- flex row, wraps on small -->
+            <!-- ① Canvas area (fluid) -->
+            <div class="main-area flex-grow-1">
+                <div class="canvas-container p-2 rounded">
                     <canvas id="gradientCanvas"></canvas>
                 </div>
             </div>
 
-            <!-- Controls  (fixed‑right sidebar) -->
-            <div class="col-lg-4 sidebar">
-                <div class="card shadow-sm">
+            <!-- ② Fixed‑width sidebar -->
+            <div class="sidebar">
+                <div class="card shadow-sm h-100">
                     <div class="card-body">
                         <!-- NEW title -->
                         <h4 class="text-center mb-4">

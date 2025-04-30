@@ -2,6 +2,8 @@
 
 body {
     background-color: #f8f9fa;
+    background-image: url('../images/dot-grid-bg-light-mode.png');
+    background-repeat: repeat;
 }
 
 .canvas-container {
@@ -9,12 +11,14 @@ body {
     width: 100%;
     text-align: center;
     overflow: hidden;
+    border-radius: 20px;      /* keep rounded corner, bg removed */
 }
 
 #gradientCanvas {
     max-width: 100%;
     height: auto;
     cursor: crosshair;
+    border-radius: 20px;
 }
 
 .form-range::-webkit-slider-thumb {
@@ -36,15 +40,10 @@ body {
 
 /* fixed full‑height right sidebar */
 .sidebar{
-    position:fixed;
-    top:0;
-    right:0;
-    width:420px;           /* widened sidebar */
-    height:100vh;
+    height:100vh;           /* scroll internally if content too high */
     overflow-y:auto;
-    padding:1rem;         /* 1 rem on all sides -> gap bottom included */
-    z-index:1030;         /* above canvas */
-    background:transparent; /* show page background so card floats */
+    background:transparent;
+    padding:1rem;
 }
 
 /* Keep card full width of sidebar */
@@ -63,12 +62,13 @@ body {
 
 /* left area takes remaining width and centres canvas */
 .main-area{
-    margin-right:420px;    /* keep in sync with sidebar width */
     min-height:100vh;
     display:flex;
     justify-content:center;
     align-items:center;
 }
+
+/* .main-area margin already compensates the 420‑px fixed sidebar */
 
 /* optional – remove bottom margin of canvas column on large screens */
 @media (min-width:992px){
@@ -78,3 +78,57 @@ body {
 }
 
 #distortionParams.d-none{display:none;}
+
+/* Remove side‑padding of container and negative margins of the row */
+.container-fluid{
+    padding-left:0;
+    padding-right:0;
+}
+.container-fluid>.row{
+    margin-left:0;
+    margin-right:0;
+}
+
+/* ---------- flex row may wrap ---------- */
+.layout-flex{
+    flex-wrap:wrap;         /* sidebar moves underneath when space is tight */
+}
+
+/* default desktop – already OK (sidebar 420px, main fills & centres) */
+
+/* -------- fixed‑width sidebar for wide viewports -------- */
+.sidebar{
+    flex:0 0 420px;      /* fixed basis, no grow / no shrink */
+    height:100vh;
+    overflow-y:auto;
+    background:transparent;
+    padding:1rem;
+}
+
+/* canvas column keeps centring on wide screens */
+.main-area{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+/* breakpoint: below lg (Bootstrap 992 px) */
+@media (max-width:1199.98px){
+    .sidebar{
+        width:100%;
+        height:auto;          /* natural height */
+        flex:0 0 100%;
+        padding:1rem 0.75rem;
+    }
+    .main-area{
+        min-height:auto;      /* hug canvas */
+        padding:1rem 0.75rem;
+        display:block;        /* drop flex‑centering */
+    }
+    .canvas-container{
+        margin:0 auto;        /* keep centred horizontally */
+    }
+}
+
+/* keep the small‑screen (≤ 991 px) rules identical – nothing else needed */

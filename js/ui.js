@@ -130,6 +130,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Re‑render with updated canvas
         meshGradient.render();
+
+        // If Twist is selected, rebuild its slider limits
+        if (distortionSelect.value === 'twist'){
+            rebuildDistortionParams('twist');
+        }
     });
     
     // Mouse events for cell manipulation
@@ -220,12 +225,7 @@ document.addEventListener('DOMContentLoaded', function() {
             speed     : {lbl:'Speed'    , min:0 , max:10 , step:0.1, val:1 },
             time      : {lbl:'Time'     , min:0 , max:100, step:0.1, val:0 }
         },
-        twist  : {
-            centerX : {lbl:'Center X', min:0 , max:1, step:0.01, val:0.5},
-            centerY : {lbl:'Center Y', min:0 , max:1, step:0.01, val:0.5},
-            maxAngle: {lbl:'Max Angle °', min:0 , max:720, step:1, val:180},
-            radius  : {lbl:'Radius px',  min:10, max:600, step:1, val:200}
-        },
+        twist  : buildTwistMeta,              // <-- now a function
         bulge  : {
             centerX : {lbl:'Center X', min:0 , max:1, step:0.01, val:0.5},
             centerY : {lbl:'Center Y', min:0 , max:1, step:0.01, val:0.5},
@@ -284,7 +284,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if(type==='none'){ meshGradient.setDistortionStack([]); return; }
 
-        const meta=DISTORTION_META[type];
+        /* get meta (object or factory) */
+        const meta = typeof DISTORTION_META[type]==='function'
+            ? DISTORTION_META[type]()          // dynamic
+            : DISTORTION_META[type];
+
         Object.keys(meta).forEach(k=>{
             currentDistortion.opts[k]=meta[k].val;
             distortionParams.appendChild(createControl(k, meta[k], currentDistortion.opts));
@@ -299,4 +303,18 @@ document.addEventListener('DOMContentLoaded', function() {
     /* hook select change                                                 */
     /* ------------------------------------------------------------------ */
     distortionSelect.addEventListener('change', ()=> rebuildDistortionParams(distortionSelect.value));
+
+    /* ────────────────────────────────────────────────────────────── *
+     *  Dynamic helpers for Twist – must be recomputed on resize     *
+     * ────────────────────────────────────────────────────────────── */
+    function buildTwistMeta() {
+        const maxRad = Math.max(meshGradient.width, meshGradient.height);
+        return {
+            centerX  : {lbl:'Center X', min:0, max:1,  step:0.01, val:0.5},
+            centerY  : {lbl:'Center Y', min:0, max:1,  step:0.01, val:0.5},
+            /* Max‑angle slider in *turns* 0‑5 (step .1) */
+            maxAngle : {lbl:'Max Angle (turns)', min:0, max:5,  step:0.1,  val:1},
+            radius   : {lbl:'Radius px',         min:10, max:maxRad, step:1, val:Math.round(maxRad/2)}
+        };
+    }
 });

@@ -1,5 +1,10 @@
 # Distortion Library – Concept & Integration Plan
 
+Add the controls in the same order the operations are performed in the mesh gradient generation.
+So the controls for the distortion should be a dropdown immediately before the generate new gradient button.
+One an item is selected from the dropdown, the corresponding controls are shown.
+
+
 
 ## 1. Distortion Catalogue (Normalised)
 
@@ -8,7 +13,7 @@
 | 1 | Ripple | Concentric waves from a point. | `center`, `amplitude`, `frequency`, `speed`, `time` |
 | 2 | Polar / Swirl | Cartesian→Polar warp for swirls. | `center`, `scale`, `angleOffset`, `zoom` |
 | 3 | Wave | Sinusoidal displacement (hor / vert). | `direction`, `amplitude`, `frequency`, `speed`, `time` |
-| 4 | Twist | Angle increases with radius. | `center`, `maxAngle`, `radius` |
+| 4 | Twist | Angle increases with radius. | `center`, `maxAngle` (turns 0‑5), `radius` (px, 0‑maxSide) |
 | 5 | Bulge / Pinch | Radial squeeze or inflate. | `center`, `radius`, `strength` |
 | 6 | Barrel / Fisheye | Lens‑like outward curve. | `barrelPower` |
 
