@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const resizeCanvasBtn = document.getElementById('resizeCanvas');
     const distortionSelect = document.getElementById('distortionType');
     const distortionParams = document.getElementById('distortionParams');
+    const colorThemeSelect = document.getElementById('colorTheme');
     
     // Initialize gradient generator
     const meshGradient = new MeshGradient();
@@ -47,7 +48,8 @@ document.addEventListener('DOMContentLoaded', function() {
         maxBlurValue.textContent    = constraints.blur.max;
 
         // Initial render ---------------------
-        meshGradient.generate();
+        meshGradient.generate();          // first render uses default theme
+        meshGradient.setColorTheme(colorThemeSelect.value); // ensure synced
     }
     
     // Generate button click
@@ -73,6 +75,9 @@ document.addEventListener('DOMContentLoaded', function() {
     colorHarmonySelect.addEventListener('change', function() {
         meshGradient.setColorHarmony(this.value);
     });
+    
+    // Color theme select change
+    colorThemeSelect.addEventListener('change',()=>meshGradient.setColorTheme(colorThemeSelect.value));
     
     // HSL Adjustment Buttons
     document.getElementById('hueDecrease').addEventListener('click', function() {

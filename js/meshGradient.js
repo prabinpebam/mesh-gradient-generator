@@ -34,6 +34,8 @@ class MeshGradient {
 
         this.distortions = new DistortionManager();
 
+        this.colorTheme = 'none';
+
         console.log("MeshGradient constructor", this);
         console.log("DistortionManager initialized", this.distortions);
     }
@@ -147,9 +149,8 @@ class MeshGradient {
         
         // Generate colors based on harmony type
         this.colorPalette.randomizeBaseHue();
-        const colors = this.colorPalette.generate(this.colorHarmony, this.cellCount);
-
-        this.currentColors = colors;         // <-- save palette
+        const colors = this.buildPalette();
+        this.currentColors = colors;
         this.render(colors);
     }
     
@@ -396,9 +397,11 @@ class MeshGradient {
      * @param {Object} options - Adjustment options (hue, saturation, lightness)
      */
     adjustColors(options = {}) {
-        // Get current colors
+        // Get current colors and adjust them without theme constraints
         const colors = this.colorPalette.adjustColors(options);
-        this.currentColors = colors;          // keep palette updated
+        
+        // Bypass theme restrictions - use adjusted colors directly
+        this.currentColors = colors;
         this.render(colors);
         
         return colors;
@@ -410,8 +413,8 @@ class MeshGradient {
      */
     setColorHarmony(harmonyType) {
         this.colorHarmony = harmonyType;
-        const colors = this.colorPalette.generate(this.colorHarmony, this.cellCount);
-        this.currentColors = colors;          // store new palette
+        const colors = this.buildPalette();
+        this.currentColors = colors;
         this.render(colors);
     }
     
@@ -438,5 +441,289 @@ class MeshGradient {
             this.setEditMode(false);
         }
         this.render();
+    }
+
+    /* ------------- theme helper ---------------- */
+    applyTheme(colors) {
+        if (this.colorTheme === 'none') return colors;
+
+        return colors.map(c => {
+            let { h, s, l } = c;                  // existing HSL
+            let nh = h, ns = s, nl = l;
+
+            switch (this.colorTheme) {
+                case 'pastel':      ns = Math.max(25, Math.min(60,s)); nl = Math.max(70, l); break;
+                case 'vivid':       ns = Math.max(80, s);              nl = Math.max(40, Math.min(60,l)); break;
+                
+                case 'bauhaus': {
+                    /* ---------- Authentic Bauhaus RYB Target Values ---------- */
+                    // Historical Bauhaus primary triad (Itten/Kandinsky)
+                    const targets = [
+                        { h: 354, s: 84, l: 43 },  // Red #BE1E2D
+                        { h: 51,  s: 91, l: 55 },  // Yellow #FFDE17
+                        { h: 225, s: 79, l: 37 }   // Blue #21409A
+                    ];
+                    
+                    // Find closest primary - snap to red, yellow, or blue
+                    let closest = targets[0];
+                    let minDist = 360;
+                    
+                    for (const target of targets) {
+                        // Calculate hue distance (in degrees)
+                        // Account for hue being circular (0-360)
+                        const dist = Math.min(
+                            Math.abs(h - target.h), 
+                            Math.abs(h - (target.h + 360))
+                        );
+                        
+                        if (dist < minDist) {
+                            minDist = dist;
+                            closest = target;
+                        }
+                    }
+                    
+                    // Add black/white (Itten's contrast concept)
+                    if (l < 20) {
+                        // For very dark colors, push to true black
+                        nh = 0; ns = 0; nl = 0;
+                    } else if (l > 85) {
+                        // For very light colors, push to pure white
+                        nh = 0; ns = 0; nl = 100;
+                    } else {
+                        // Otherwise snap to closest primary hue
+                        nh = closest.h;
+                        // Ensure high saturation within Bauhaus range
+                        ns = Math.max(65, closest.s);  
+                        // Keep in mid-range lightness bounds
+                        nl = Math.max(35, Math.min(55, closest.l));
+                    }
+                    break;
+                }
+                
+                case 'earth': {
+                    /* ---------- 1. hue clamp ---------- */
+                    const inWarm   = h >= 10 && h <= 60;
+                    const inGreen  = h >= 80 && h <= 140;
+                    if (!inWarm && !inGreen) {
+                        // snap to nearest allowed band edge
+                        const candidates = [10, 60, 80, 140];
+                        nh = candidates.reduce((a, b) =>
+                            Math.abs(b - h) < Math.abs(a - h) ? b : a, candidates[0]);
+                    }
+
+                    /* ---------- 2. saturation / lightness clamp ---------- */
+                    ns = Math.max(26, Math.min(41, s));
+                    nl = Math.max(36, Math.min(77, l));
+
+                    /* ---------- 3. tone with gray (40 % blend) ---------- */
+                    // Convert to RGB, blend, convert back to HSL
+                    const rgb = this.colorPalette.hslToRgb(nh, ns, nl);
+                    const gray = 0.5 * 255;
+                    const mix = 0.4;                        // 40 % gray
+                    const toned = {
+                        r: Math.round(rgb.r * (1 - mix) + gray * mix),
+                        g: Math.round(rgb.g * (1 - mix) + gray * mix),
+                        b: Math.round(rgb.b * (1 - mix) + gray * mix)
+                    };
+                    const hex = this.colorPalette.rgbToHex(toned);
+                    const hsl = this.colorPalette.hexToHSL(hex);
+                    nh = hsl.h; ns = hsl.s; nl = hsl.l;
+                    break;
+                }
+
+                case 'scandi': {
+                    // Color category determination based on initial lightness
+                    if (l >= 0.8) {
+                        // Neutral Base: Off-whites with minimal saturation
+                        // S ≤ 10%, L ≥ 85%
+                        ns = Math.min(10, s);
+                        nl = Math.max(85, l);
+                    } else if (l >= 0.5 && l <= 0.7) {
+                        // Mid-tones: Light grays & beiges
+                        // S ≤ 10%, L ∈ [50%, 70%]
+                        ns = Math.min(10, s);
+                        nl = Math.max(50, Math.min(70, l));
+                    } else if (l >= 0.6 && l <= 0.9) {
+                        // Soft accent hues - identify by hue ranges
+                        if (h >= 200 && h <= 220) {
+                            // Pale Blues
+                            // H ∈ [200°, 220°], S ∈ [10%, 30%], L ∈ [80%, 90%]
+                            nh = h;  // Keep hue
+                            ns = Math.max(10, Math.min(30, s));
+                            nl = Math.max(80, Math.min(90, l));
+                        } else if (h >= 100 && h <= 140) {
+                            // Muted Greens
+                            // H ∈ [100°, 140°], S ∈ [20%, 40%], L ∈ [60%, 80%]
+                            nh = h;  // Keep hue
+                            ns = Math.max(20, Math.min(40, s));
+                            nl = Math.max(60, Math.min(80, l));
+                        } else if (h >= 10 && h <= 30) {
+                            // Warm Terracotta
+                            // H ∈ [10°, 30°], S ∈ [30%, 50%], L ∈ [60%, 80%]
+                            nh = h;  // Keep hue
+                            ns = Math.max(30, Math.min(50, s));
+                            nl = Math.max(60, Math.min(80, l));
+                        } else {
+                            // Other hues - convert to nearest valid accent
+                            // Default to pale blue if no specific match
+                            nh = 210;  // Default pale blue
+                            ns = 20;
+                            nl = 85;
+                        }
+                    } else if (l <= 0.3) {
+                        // Dark Accents - used sparingly
+                        // S ≤ 60%, L ≤ 30%
+                        nh = h;  // Keep hue
+                        ns = Math.min(60, s);
+                        nl = Math.min(30, l);
+                    } else {
+                        // Any remaining colors - convert to safe neutral
+                        ns = Math.min(10, s);
+                        nl = 85;  // Default light neutral
+                    }
+                    break;
+                }
+
+                case 'neon': {
+                    // Extreme purity and brightness
+                    // HSL: S≥90%, L≈50%
+                    ns = Math.max(90, s);  // Very high saturation
+                    nl = 50;  // Fixed mid-lightness for optimal brightness
+                    break;
+                }
+
+                case 'vintage': {
+                    // Desaturated, slightly muted with warm bias
+                    // S ≤ 60%, L ≥ 60%
+                    ns = Math.min(60, s);
+                    nl = Math.max(60, l); 
+                    
+                    // Prefer warm hues (sepia-style) - shift toward the warm range
+                    if (h < 20 || h > 50) {
+                        // Gradually shift colors toward the warm/sepia center (35°)
+                        // Colors already in range stay as is
+                        const target = 35; // Center of sepia/warm vintage range
+                        const weight = 0.7; // Strength of shift (0-1)
+                        nh = h + (target - h) * weight;
+                        // Ensure hue stays in 0-360 range
+                        nh = ((nh % 360) + 360) % 360;
+                    }
+                    break;
+                }
+
+                case 'material': {
+                    // SOLUTION: Create a strong, random seed color for consistent palette generation
+                    // Generate a random base hue if none exists
+                    const seedHue = Math.floor(Math.random() * 360);
+                    
+                    // Always assign strong color properties for material palettes
+                    // Determine a random palette type for each color
+                    const paletteTypes = ['primary', 'secondary', 'tertiary', 'neutral', 'neutralVariant'];
+                    const palette = paletteTypes[Math.floor(Math.random() * 3)]; // Favor primary/secondary/tertiary
+                    
+                    // Apply Material's hue logic
+                    if (palette === 'tertiary') {
+                        // Tertiary is 60° shifted from primary
+                        nh = (seedHue + 60) % 360;
+                    } else {
+                        // All other palettes share the seed hue
+                        nh = seedHue;
+                    }
+                    
+                    // Apply appropriate saturation and lightness based on palette role
+                    switch (palette) {
+                        case 'primary':
+                            ns = 80; // Higher saturation for primaries
+                            nl = 40; // Strong primary color (40% lightness is vibrant)
+                            break;
+                            
+                        case 'secondary':
+                            ns = 40; // Medium saturation for secondary
+                            nl = 40; // Same lightness level for consistency
+                            break;
+                            
+                        case 'tertiary':
+                            ns = 50; // Medium-high saturation
+                            nl = 40; // Same lightness for consistent vibrance
+                            break;
+                            
+                        case 'neutralVariant':
+                            ns = 8;  // Very low saturation but still maintains hue
+                            nl = 80; // Light neutral variant
+                            break;
+                            
+                        case 'neutral':
+                            ns = 4;  // Minimal saturation
+                            nl = 95; // Very light (almost white) for neutrals
+                            break;
+                    }
+                    break;
+                }
+
+                // Replace the 'seasonal' case with individual seasons
+                case 'spring': {
+                    // Warm pastels
+                    // H∈[30°,60°], S∈[0.3,0.6], L∈[0.7,0.9]
+                    nh = Math.max(30, Math.min(60, h)); // Ensure hue in spring range
+                    ns = Math.max(30, Math.min(60, s));
+                    nl = Math.max(70, Math.min(90, l));
+                    break;
+                }
+
+                case 'summer': {
+                    // Cool muted
+                    // H∈[180°,240°], S∈[0.2,0.5], L∈[0.6,0.8]
+                    nh = Math.max(180, Math.min(240, h)); // Ensure hue in summer range
+                    ns = Math.max(20, Math.min(50, s));
+                    nl = Math.max(60, Math.min(80, l));
+                    break;
+                }
+
+                case 'autumn': {
+                    // Rich earth tones (same as earth-tones)
+                    const inWarm = h >= 10 && h <= 60;
+                    const inGreen = h >= 80 && h <= 140;
+                    if (!inWarm && !inGreen) {
+                        // snap to nearest allowed band edge
+                        const candidates = [10, 60, 80, 140];
+                        nh = candidates.reduce((a, b) =>
+                            Math.abs(b - h) < Math.abs(a - h) ? b : a, candidates[0]);
+                    }
+                    
+                    // Set saturation and lightness ranges
+                    ns = Math.max(30, Math.min(60, s));
+                    nl = Math.max(40, Math.min(70, l));
+                    break;
+                }
+
+                case 'winter': {
+                    // Cool high-contrast
+                    // H∈[240°,300°], S∈[0.6,0.9], L∈[0.2,0.6]
+                    nh = Math.max(240, Math.min(300, h)); // Ensure hue in winter range
+                    ns = Math.max(60, Math.min(90, s));
+                    nl = Math.max(20, Math.min(60, l));
+                    break;
+                }
+            }
+
+            return {
+                h: nh, s: ns, l: nl,
+                hex: this.colorPalette.hslToHex(nh, ns, nl)
+            };
+        });
+    }
+
+    /* when theme / harmony / palette regenerated */
+    setColorTheme(theme){
+        this.colorTheme=theme;
+        // always regenerate to honour theme constraints
+        const colors = this.buildPalette();
+        this.currentColors = colors;
+        this.render(colors);
+    }
+
+    buildPalette() {
+        const base = this.colorPalette.generate(this.colorHarmony, this.cellCount);
+        return this.applyTheme(base);
     }
 }
