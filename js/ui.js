@@ -4,17 +4,48 @@ let meshGradient;
 /**
  * UI Controller for the Mesh Gradient Generator
  */
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("UI initializing...");
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('UI initializing...');
     
-    // Create the MeshGradient instance first
-    try {
-        meshGradient = new MeshGradient();
-        initializeUI();
-    } catch (error) {
-        console.error('MeshGradient not found. Check script loading order.', error);
-    }
+    // Add a small delay to ensure MeshGradient is fully initialized
+    setTimeout(() => {
+        if (typeof MeshGradient === 'undefined') {
+            console.error("MeshGradient not found. Check script loading order.");
+            return;
+        }
+        
+        console.log("MeshGradient found, continuing with UI initialization");
+        
+        // Create the MeshGradient instance first
+        try {
+            meshGradient = new MeshGradient();
+            initializeUI();
+        } catch (error) {
+            console.error('MeshGradient not found. Check script loading order.', error);
+        }
+    }, 100);
 });
+
+// Add this helper function near the top of your file
+function getDistortions() {
+    if (!window.meshGradient) return null;
+    
+    // Handle both the old and new structure
+    if (meshGradient.distortions) {
+        return meshGradient.distortions;
+    } else if (meshGradient.data && meshGradient.data.distortions) {
+        return meshGradient.data.distortions;
+    }
+    
+    return null;
+}
+
+function hasActiveDistortion() {
+    const distortions = getDistortions();
+    return distortions && typeof distortions.hasActive === 'function' 
+        ? distortions.hasActive() 
+        : false;
+}
 
 // Move all UI initialization to a separate function
 function initializeUI() {
@@ -230,7 +261,10 @@ function initializeUI() {
         if (type === 'none') {
             console.log("Disabling distortion");
             distortionParams.classList.add('d-none');
-            meshGradient.setDistortionStack([]);
+            const distortions = getDistortions();
+            if (distortions && typeof distortions.setStack === 'function') {
+                distortions.setStack([]);
+            }
             editModeToggle.disabled = false;
         } else {
             console.log("Enabling distortion:", type);
@@ -248,10 +282,13 @@ function initializeUI() {
                 console.log("Polar distortion options:", distortionOpts);
             }
             
-            meshGradient.setDistortionStack([{ 
-                type: type, 
-                opts: distortionOpts 
-            }]);
+            const distortions = getDistortions();
+            if (distortions && typeof distortions.setStack === 'function') {
+                distortions.setStack([{ 
+                    type: type, 
+                    opts: distortionOpts 
+                }]);
+            }
             
             // Disable edit mode when distortion active
             editModeToggle.checked = false;
@@ -265,7 +302,7 @@ function initializeUI() {
     
     // Click on canvas to interact with hovered or edited cells
     canvas.addEventListener('click', function(e) {
-        if (meshGradient.distortions.hasActive()) return;
+        if (hasActiveDistortion()) return;
         
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -456,7 +493,13 @@ function initializeUI() {
 
         currentDistortion = {type, opts:{}};
 
-        if(type==='none'){ meshGradient.setDistortionStack([]); return; }
+        if(type==='none'){ 
+            const distortions = getDistortions();
+            if (distortions && typeof distortions.setStack === 'function') {
+                distortions.setStack([]);
+            }
+            return; 
+        }
 
         /* get meta (object or factory) */
         const meta = typeof DISTORTION_META[type]==='function'
@@ -468,7 +511,10 @@ function initializeUI() {
             distortionParams.appendChild(createControl(k, meta[k], currentDistortion.opts));
         });
 
-        meshGradient.setDistortionStack([currentDistortion]);
+        const distortions = getDistortions();
+        if (distortions && typeof distortions.setStack === 'function') {
+            distortions.setStack([currentDistortion]);
+        }
         editModeToggle.checked=false;
         editModeToggle.disabled=true;
     }

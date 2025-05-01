@@ -20,21 +20,12 @@ class DistortionManager {
      * @param {CanvasRenderingContext2D} targetCtx – on‑screen ctx
      */
     apply(srcCanvas, targetCtx) {
-        console.log("DistortionManager.apply", {
-            active: this.hasActive(),
-            stack: this.stack,
-            srcCanvas: {width: srcCanvas.width, height: srcCanvas.height},
-            targetCtx: targetCtx
-        });
-
         if (!this.hasActive()) {
-            console.log("No active distortions, direct copy");
             targetCtx.drawImage(srcCanvas, 0, 0);
             return;
         }
 
         const first = this.stack[0];
-        console.log("Applying distortion:", first.type);
         
         // Handler map -------------
         const map = {
@@ -53,9 +44,6 @@ class DistortionManager {
     /* ----- helpers ------------------------------------------------------- */
 
     applyPolar(src, dst, opts) {
-        console.log("applyPolar called with options:", opts);
-        console.log("Source canvas:", {width: src.width, height: src.height});
-        
         const w = src.width;
         const h = src.height;
         
@@ -71,18 +59,10 @@ class DistortionManager {
         wctx.drawImage(src, 0, 0);                // right (mirrored)
         wctx.restore();
 
-        console.log("Created mirrored canvas:", {width: wide.width, height: wide.height});
-
         // 2. polar mapping with bilinear filtering
         const dstImg = dst.createImageData(w, h);
         const srcImg = wctx.getImageData(0, 0, wide.width, h);
         const srcData = srcImg.data;
-
-        console.log("Processing source pixels:", {
-            sourceWidth: wide.width,
-            sourceHeight: h,
-            dataLength: srcData.length
-        });
 
         // Helper function for bilinear sampling
         const bilinearSample = (imgData, x, y, w, h) => {
@@ -154,7 +134,6 @@ class DistortionManager {
             }
         }
         
-        console.log("Finished polar mapping, putting image data");
         dst.putImageData(dstImg, 0, 0);
     }
 }
