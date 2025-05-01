@@ -312,4 +312,54 @@ class ColorPalette {
         
         return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
     }
+
+    /**
+     * Theme diagnostics - add this function to ColorPalette class
+     */
+    diagnoseThemeIssues() {
+        console.log("Diagnosing color theme issues...");
+        
+        // List all available themes from the UI
+        const availableThemes = [
+            'none', 'pastel', 'vivid', 'earth', 'bauhaus', 'scandi', 
+            'neon', 'vintage', 'material', 'spring', 'summer', 'autumn', 'winter'
+        ];
+        
+        // Check if each theme is properly defined in the ColorPalette
+        const themeReport = {};
+        
+        availableThemes.forEach(theme => {
+            // Check if theme method exists (for themes implemented as methods)
+            const themeMethodExists = typeof this[`generate${theme.charAt(0).toUpperCase() + theme.slice(1)}Colors`] === 'function';
+            
+            // Check if theme is in preset themes (for themes implemented as preset objects)
+            const presetThemeExists = this.presetThemes && this.presetThemes[theme];
+            
+            // Check if there's a theme map entry (for themes mapped to other implementation methods)
+            const themeMapExists = this.themeMap && this.themeMap[theme];
+            
+            themeReport[theme] = {
+                methodExists: themeMethodExists,
+                presetExists: presetThemeExists,
+                mapExists: themeMapExists,
+                implemented: themeMethodExists || presetThemeExists || themeMapExists
+            };
+        });
+        
+        console.table(themeReport);
+        
+        // Test each theme with current settings
+        console.log("Testing color generation for each theme...");
+        availableThemes.forEach(theme => {
+            if (theme === 'none') return; // Skip 'none' as it's not a real theme
+            
+            try {
+                // Try to generate colors for this theme
+                const colors = this.generateThemeColors(theme, 5); // Assuming 5 colors for testing
+                console.log(`Theme '${theme}' generated ${colors ? colors.length : 0} colors:`, colors);
+            } catch (error) {
+                console.error(`Error generating colors for theme '${theme}':`, error);
+            }
+        });
+    }
 }

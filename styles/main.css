@@ -35,6 +35,7 @@ body {
     background-color: var(--body-bg);
     color: var(--text-color);
     min-height: 100vh;
+    background-image: url('../images/dot-grid-bg-light-mode.png');
 }
 
 [data-bs-theme="dark"] body {
