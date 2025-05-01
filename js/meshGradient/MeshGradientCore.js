@@ -28,6 +28,9 @@ class MeshGradientCore {
         
         // Initialize with default dimensions
         this.resizeCanvas(this.width, this.height);
+
+        // Add a reliable color tracking system
+        this._colorTrackingInitialized = false;
     }
     
     /**
@@ -287,5 +290,182 @@ class MeshGradientCore {
             this.setEditMode(false);
         }
         this.render();
+    }
+
+    /**
+     * Get all colors currently used in the gradient
+     * @returns {Array} Array of color objects with hex and HSL values
+     */
+    getAllColors() {
+        const colors = [];
+        const uniqueHexColors = new Set(); // Track unique colors to avoid duplicates
+        
+        try {
+            // First try to get colors from each cell directly - most accurate approach
+            if (this.data && this.data.voronoi) {
+                // Try to get the most accurate cell count
+                let cellCount = 0;
+                if (typeof this.getCellCount === 'function') {
+                    cellCount = this.getCellCount();
+                } else if (this.data.voronoi.sites && Array.isArray(this.data.voronoi.sites)) {
+                    cellCount = this.data.voronoi.sites.length;
+                } else if (this.data.cellCount) {
+                    cellCount = this.data.cellCount;
+                }
+                
+                console.log(`Getting colors from ${cellCount} cells`);
+                
+                for (let i = 0; i < cellCount; i++) {
+                    const color = this.getCellColor(i);
+                    if (color && color.hex) {
+                        // Only add if we haven't seen this hex color before
+                        if (!uniqueHexColors.has(color.hex)) {
+                            uniqueHexColors.add(color.hex);
+                            colors.push(color);
+                        }
+                    }
+                }
+                
+                // Log detailed info about found colors
+                if (colors.length > 0) {
+                    console.log(`Found ${colors.length} unique colors from ${cellCount} cells: `, 
+                        colors.map(c => c.hex));
+                    return colors;
+                }
+            }
+            
+            // Direct access to current colors if available - fallback 1
+            if (this.data && this.data.currentColors && Array.isArray(this.data.currentColors)) {
+                const currentColors = this.data.currentColors.filter(c => c && c.hex);
+                if (currentColors.length > 0) {
+                    console.log(`Found ${currentColors.length} colors in currentColors`);
+                    return currentColors;
+                }
+            }
+            
+            // Check colorPalette - fallback 2
+            if (this.data && this.data.colorPalette && 
+                this.data.colorPalette.lastGeneratedColors) {
+                const paletteColors = [...this.data.colorPalette.lastGeneratedColors].filter(c => c);
+                if (paletteColors.length > 0) {
+                    console.log(`Found ${paletteColors.length} colors in colorPalette`);
+                    return paletteColors;
+                }
+            }
+        } catch (err) {
+            console.error("Error in getAllColors:", err);
+        }
+        
+        console.log(`Returning ${colors.length} total colors`);
+        return colors;
+    }
+    
+    /**
+     * Get the cell count from the most reliable source
+     * @returns {Number} Number of cells in the gradient
+     */
+    getCellCount() {
+        try {
+            // First check direct property if it exists
+            if (typeof this.cellCount === 'number') {
+                return this.cellCount;
+            }
+            
+            // Then check data structure
+            if (this.data) {
+                if (typeof this.data.cellCount === 'number') {
+                    return this.data.cellCount;
+                }
+                
+                // Then check voronoi data structures
+                if (this.data.voronoi) {
+                    if (typeof this.data.voronoi.getCellCount === 'function') {
+                        return this.data.voronoi.getCellCount();
+                    }
+                    if (this.data.voronoi.sites && Array.isArray(this.data.voronoi.sites)) {
+                        return this.data.voronoi.sites.length;
+                    }
+                    if (this.data.voronoi.cells && Array.isArray(this.data.voronoi.cells)) {
+                        return this.data.voronoi.cells.length;
+                    }
+                }
+                
+                // Check for cells directly
+                if (this.data.cells && Array.isArray(this.data.cells)) {
+                    return this.data.cells.length;
+                }
+            }
+            
+            // Check for direct properties on the instance
+            if (this.voronoi) {
+                if (typeof this.voronoi.getCellCount === 'function') {
+                    return this.voronoi.getCellCount();
+                }
+                if (this.voronoi.sites && Array.isArray(this.voronoi.sites)) {
+                    return this.voronoi.sites.length;
+                }
+                if (this.voronoi.cells && Array.isArray(this.voronoi.cells)) {
+                    return this.voronoi.cells.length;
+                }
+            }
+            
+            // Check UI as last resort 
+            const cellCountSlider = document.getElementById('cellCount');
+            if (cellCountSlider) {
+                return parseInt(cellCountSlider.value) || 0;
+            }
+        } catch (err) {
+            console.error("Error getting cell count:", err);
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * Initialize color tracking for reliable access
+     */
+    initializeColorTracking() {
+        if (this._colorTrackingInitialized) return;
+        
+        const originalRender = this.render;
+        
+        // Override render to consistently notify about color changes
+        this.render = (...args) => {
+            const result = originalRender.apply(this, args);
+            
+            // Create a custom event with full color data
+            const colorsData = this.getAllColors();
+            const cellCount = this.getCellCount();
+            
+            const event = new CustomEvent('meshColorsAvailable', {
+                detail: { 
+                    colors: colorsData,
+                    cellCount: cellCount,
+                    timestamp: new Date().toISOString()
+                }
+            });
+            
+            document.dispatchEvent(event);
+            return result;
+        };
+        
+        this._colorTrackingInitialized = true;
+    }
+
+    /**
+     * Get the base color used for generation (if available)
+     * @returns {Object|null} The base color object or null
+     */
+    getBaseColor() {
+        return this.data && this.data.baseColor ? this.data.baseColor : null;
+    }
+    
+    /**
+     * Set the base color for gradient generation
+     * @param {String} hexColor - Hex color to use as base
+     */
+    setBaseColor(hexColor) {
+        if (!this.data) return;
+        this.data.baseColor = hexColor;
     }
 }
