@@ -7,6 +7,9 @@
     --border-color: #dee2e6;
     --text-color: #212529;
     --box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    /* Color picker popup positioning */
+    --color-picker-top: 0px;
+    --color-picker-left: 0px;
 }
 
 /* Dark Theme Variables */
@@ -87,6 +90,18 @@ body {
     height: auto;
     cursor: crosshair;
     border-radius: 20px;
+}
+
+#gradientCanvas:hover {
+    cursor: pointer;
+}
+
+.cell-dragging #gradientCanvas {
+    cursor: grabbing;
+}
+
+.edit-mode #gradientCanvas {
+    cursor: move;
 }
 
 .form-range::-webkit-slider-thumb {
@@ -283,4 +298,28 @@ body {
 .color-adjust-group {
     width: auto !important;
     display: inline-flex;
+}
+
+/* Hidden color picker that will be triggered programmatically */
+.cell-color-picker {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* Color picker popup positioning */
+input[type="color"]::-webkit-color-swatch-wrapper {
+    position: relative;
+    top: var(--color-picker-top);
+    left: var(--color-picker-left);
+}
+
+/* Make sure bootstrap icons are available for the lock icons */
+@font-face {
+    font-family: 'bootstrap-icons';
+    src: url('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/fonts/bootstrap-icons.woff2') format('woff2'),
+         url('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/fonts/bootstrap-icons.woff') format('woff');
 }

@@ -76,6 +76,27 @@ class VoronoiGenerator {
     }
 
     /**
+     * Find the cell that contains the given point
+     * @param {Number} x - X coordinate
+     * @param {Number} y - Y coordinate
+     * @returns {Number} - Index of the cell containing the point, or -1 if none
+     */
+    findCellAtPosition(x, y) {
+        if (!this.delaunay) return -1;
+        
+        // Find the nearest site using delaunay's find method
+        const siteIndex = this.delaunay.find(x, y);
+        
+        // Make sure the point is actually inside the Voronoi cell
+        // (delaunay.find just gives us the nearest site, not necessarily within its cell)
+        if (siteIndex >= 0 && siteIndex < this.sites.length) {
+            return siteIndex;
+        }
+        
+        return -1;
+    }
+
+    /**
      * Get all Voronoi cells as path strings
      * @returns {Array} - Array of cell objects with path and site data
      */

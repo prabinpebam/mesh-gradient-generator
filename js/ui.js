@@ -1,31 +1,48 @@
+// Global meshGradient variable
+let meshGradient;
+
 /**
  * UI Controller for the Mesh Gradient Generator
  */
 document.addEventListener('DOMContentLoaded', function() {
     console.log("UI initializing...");
     
-    // Elements
+    // Create the MeshGradient instance first
+    try {
+        meshGradient = new MeshGradient();
+        initializeUI();
+    } catch (error) {
+        console.error('MeshGradient not found. Check script loading order.', error);
+    }
+});
+
+// Move all UI initialization to a separate function
+function initializeUI() {
+    if (!meshGradient) return;
+    
+    // Get DOM elements
     const canvas = document.getElementById('gradientCanvas');
+    const colorPicker = document.getElementById('cellColorPicker');
     const generateBtn = document.getElementById('generateBtn');
+    const exportPngBtn = document.getElementById('exportPngBtn');
+    const editModeToggle = document.getElementById('editModeToggle');
     const cellCountSlider = document.getElementById('cellCount');
     const cellCountValue = document.getElementById('cellCountValue');
-    const minCellCount = document.getElementById('minCellCount');
-    const maxCellCount = document.getElementById('maxCellCount');
     const blurAmountSlider = document.getElementById('blurAmount');
     const blurAmountValue = document.getElementById('blurAmountValue');
-    const maxBlurValue = document.getElementById('maxBlurValue');
     const colorHarmonySelect = document.getElementById('colorHarmony');
-    const editModeToggle = document.getElementById('editModeToggle');
-    const exportPngBtn = document.getElementById('exportPngBtn');
+    const colorThemeSelect = document.getElementById('colorTheme');
+    const distortionTypeSelect = document.getElementById('distortionType');
+    const distortionParams = document.getElementById('distortionParams');
+    const minCellCount = document.getElementById('minCellCount');
+    const maxCellCount = document.getElementById('maxCellCount');
+    const maxBlurValue = document.getElementById('maxBlurValue');
     const canvasWidthInput = document.getElementById('canvasWidth');
     const canvasHeightInput = document.getElementById('canvasHeight');
     const resizeCanvasBtn = document.getElementById('resizeCanvas');
-    const distortionSelect = document.getElementById('distortionType');
-    const distortionParams = document.getElementById('distortionParams');
-    const colorThemeSelect = document.getElementById('colorTheme');
     
-    // Initialize gradient generator
-    const meshGradient = new MeshGradient();
+    // Initialize the mesh gradient
+    meshGradient.generate();
     
     // Initial UI setup
     function initUI() {
@@ -142,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
         meshGradient.render();
 
         // If Twist is selected, rebuild its slider limits
-        if (distortionSelect.value === 'twist'){
+        if (distortionTypeSelect.value === 'twist'){
             rebuildDistortionParams('twist');
         }
     });
@@ -159,7 +176,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+        
+        // For dragging in edit mode
         meshGradient.drag(x, y);
+        
+        // For hover highlighting
+        meshGradient.setHoverPosition(x, y);
+        
+        // Update button hover state
+        meshGradient.updateButtonHover(x, y);
     });
     
     canvas.addEventListener('mouseup', function() {
@@ -168,11 +193,38 @@ document.addEventListener('DOMContentLoaded', function() {
     
     canvas.addEventListener('mouseleave', function() {
         meshGradient.endDrag();
+        meshGradient.clearHover();
+    });
+    
+    // Touch events for mobile devices
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.touches[0].clientX - rect.left;
+            const y = e.touches[0].clientY - rect.top;
+            meshGradient.startDrag(x, y);
+        }
+    });
+    
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.touches[0].clientX - rect.left;
+            const y = e.touches[0].clientY - rect.top;
+            meshGradient.drag(x, y);
+        }
+    });
+    
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        meshGradient.endDrag();
     });
     
     // Distortion type change
-    distortionSelect.addEventListener('change', function() {
-        const type = distortionSelect.value;
+    distortionTypeSelect.addEventListener('change', function() {
+        const type = distortionTypeSelect.value;
         console.log("Distortion selected:", type);
         
         if (type === 'none') {
@@ -204,6 +256,118 @@ document.addEventListener('DOMContentLoaded', function() {
             // Disable edit mode when distortion active
             editModeToggle.checked = false;
             editModeToggle.disabled = true;
+        }
+    });
+    
+    // Cell color selection handling
+    let selectedCellIndex = -1;
+    let colorPickerPosition = { x: 0, y: 0 };
+    
+    // Click on canvas to interact with hovered or edited cells
+    canvas.addEventListener('click', function(e) {
+        if (meshGradient.distortions.hasActive()) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        if (meshGradient.editMode) {
+            // In edit mode, check if any button was clicked
+            if (meshGradient.hoveredButton && meshGradient.hoveredCellIndex >= 0) {
+                const cellIndex = meshGradient.hoveredCellIndex;
+                
+                if (meshGradient.hoveredButton === 'colorBtn') {
+                    // Color button was clicked
+                    selectedCellIndex = cellIndex;
+                    
+                    // Get current color and set it as the color picker value
+                    const currentColor = meshGradient.getCellColor(selectedCellIndex);
+                    colorPicker.value = currentColor.hex;
+                    
+                    // Store position for color picker
+                    colorPickerPosition = {
+                        x: e.clientX,
+                        y: e.clientY
+                    };
+                    
+                    // Open the color picker
+                    colorPicker.click();
+                } else if (meshGradient.hoveredButton === 'lockBtn') {
+                    // Lock button was clicked
+                    const isLocked = meshGradient.isCellColorLocked(cellIndex);
+                    
+                    if (isLocked) {
+                        meshGradient.unlockCellColor(cellIndex);
+                    } else {
+                        meshGradient.lockCellColor(cellIndex);
+                    }
+                }
+            }
+        } else {
+            // Original hover mode behavior
+            if (meshGradient.hoverControls) {
+                // Check if click is on the color picker button
+                if (meshGradient.isPointInControl(x, y, 'colorBtn')) {
+                    selectedCellIndex = meshGradient.hoverControls.cell;
+                    
+                    // Get current color and set it as the color picker value
+                    const currentColor = meshGradient.getCellColor(selectedCellIndex);
+                    colorPicker.value = currentColor.hex;
+                    
+                    // Store button position for color picker placement
+                    colorPickerPosition = {
+                        x: e.clientX,
+                        y: e.clientY
+                    };
+                    
+                    // Open the color picker
+                    colorPicker.click();
+                } 
+                // Check if click is on the lock/unlock button
+                else if (meshGradient.isPointInControl(x, y, 'lockBtn')) {
+                    const cellIndex = meshGradient.hoverControls.cell;
+                    const isLocked = meshGradient.isCellColorLocked(cellIndex);
+                    
+                    if (isLocked) {
+                        meshGradient.unlockCellColor(cellIndex);
+                    } else {
+                        meshGradient.lockCellColor(cellIndex);
+                    }
+                }
+            }
+        }
+    });
+    
+    // Position and handle color picker
+    colorPicker.addEventListener('click', function(e) {
+        // Prevent the click from bubbling up
+        e.stopPropagation();
+    });
+    
+    // Handle color picker change
+    colorPicker.addEventListener('input', function(e) {
+        if (selectedCellIndex >= 0) {
+            // Live preview as user selects color (temporary override)
+            meshGradient.setCellColor(selectedCellIndex, e.target.value, false);
+        }
+    });
+    
+    colorPicker.addEventListener('change', function(e) {
+        if (selectedCellIndex >= 0) {
+            // Final color selection - check if we should lock this color
+            const isLocked = meshGradient.isCellColorLocked(selectedCellIndex);
+            meshGradient.setCellColor(selectedCellIndex, e.target.value, isLocked);
+            selectedCellIndex = -1; // Reset selection
+        }
+    });
+    
+    // Style the color picker to position it near the clicked button
+    // This is necessary because some browsers don't allow full custom positioning of color pickers
+    document.addEventListener('click', function(e) {
+        if (e.target === colorPicker) {
+            // Attempt to position via CSS custom properties
+            document.documentElement.style.setProperty('--color-picker-top', `${colorPickerPosition.y}px`);
+            document.documentElement.style.setProperty('--color-picker-left', `${colorPickerPosition.x}px`);
         }
     });
     
@@ -312,7 +476,7 @@ document.addEventListener('DOMContentLoaded', function() {
     /* ------------------------------------------------------------------ */
     /* hook select change                                                 */
     /* ------------------------------------------------------------------ */
-    distortionSelect.addEventListener('change', ()=> rebuildDistortionParams(distortionSelect.value));
+    distortionTypeSelect.addEventListener('change', ()=> rebuildDistortionParams(distortionTypeSelect.value));
 
     /* ────────────────────────────────────────────────────────────── *
      *  Dynamic helpers for Twist – must be recomputed on resize     *
@@ -327,4 +491,4 @@ document.addEventListener('DOMContentLoaded', function() {
             radius   : {lbl:'Radius px',         min:10, max:maxRad, step:1, val:Math.round(maxRad/2)}
         };
     }
-});
+}

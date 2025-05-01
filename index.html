@@ -30,7 +30,7 @@
                     <div class="d-flex align-items-center justify-content-between">
                         <!-- Canvas Size controls -->
                         <div class="d-flex align-items-center gap-2">
-                            <label class="form-label mb-0 me-2 fw-medium">Canvas size</label>
+                            <label class="form-label mb-0 me-2 fw-medium">Size</label>
                             <div class="d-flex gap-2">
                                 <!-- Width input -->
                                 <div class="input-group input-group-sm size-input">
@@ -76,6 +76,8 @@
                 <!-- Canvas centered in column -->
                 <div class="canvas-container flex-grow-1 d-flex justify-content-center align-items-center p-2 rounded">
                     <canvas id="gradientCanvas"></canvas>
+                    <!-- Hidden color picker for cell color selection -->
+                    <input type="color" id="cellColorPicker" class="cell-color-picker" />
                 </div>
             </div>
 

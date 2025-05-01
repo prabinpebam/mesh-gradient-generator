@@ -24,6 +24,7 @@ class MeshGradient {
         
         // For edit mode
         this.dragSiteIndex = -1;
+        this.hoverCellIndex = -1; // Track which cell is being hovered
 
         this.currentColors = [];   // <-- remember last palette
 
@@ -35,6 +36,15 @@ class MeshGradient {
         this.distortions = new DistortionManager();
 
         this.colorTheme = 'none';
+
+        // Store overridden colors
+        this.colorOverrides = {};
+        this.lockedColors = {};   // Permanently locked colors
+
+        // Store button positions for hit testing
+        this.hoverControls = null;
+        // Track which button is being hovered
+        this.hoveredButton = null;
 
         console.log("MeshGradient constructor", this);
         console.log("DistortionManager initialized", this.distortions);
@@ -150,7 +160,13 @@ class MeshGradient {
         // Generate colors based on harmony type
         this.colorPalette.randomizeBaseHue();
         const colors = this.buildPalette();
+        
+        // Preserve locked colors
         this.currentColors = colors;
+        
+        // Clear temporary overrides
+        this.colorOverrides = {};
+        
         this.render(colors);
     }
     
@@ -164,8 +180,10 @@ class MeshGradient {
         // Clear original canvas
         this.offCtx.clearRect(0, 0, this.width, this.height);
         
-        // Get Voronoi cells
+        // Get Voronoi cells only once
         const cells = this.voronoi.getCells();
+        const sites = this.voronoi.sites;
+        
         console.log("Voronoi cells:", cells.length);
         
         // Use stored palette or generate new one
@@ -182,9 +200,11 @@ class MeshGradient {
         
         console.log("Using colors:", colors.length);
         
-        // Draw cells to off-screen canvas
+        // Draw cells to off-screen canvas with potential color overrides or locked colors
         cells.forEach((cell, index) => {
-            const color = colors[index % colors.length];
+            // Check for locked or overridden color
+            const color = this.getCellColor(index);
+            
             this.offCtx.beginPath();
             const path = new Path2D(cell.path);
             this.offCtx.fillStyle = color.hex;
@@ -209,10 +229,40 @@ class MeshGradient {
         
         this.distortions.apply(this.offCanvas, this.ctx);
         
+        // Reset hover controls for rebuilding
+        if (this.editMode) {
+            this.hoverControls = { cells: {} };
+        }
+        
+        // Handle hover cell highlighting when not in edit mode
+        if (this.hoverCellIndex >= 0 && !this.editMode && !this.distortions.hasActive()) {
+            // Show UI for just the hovered cell when not in edit mode
+            if (this.hoverCellIndex < sites.length && this.hoverCellIndex < cells.length) {
+                this.drawCellUI(this.hoverCellIndex, sites, cells);
+            }
+        } 
+        // Handle edit mode - show controls for all cells
+        else if (this.editMode && !this.distortions.hasActive()) {
+            // Iterate through all cells to draw their UI
+            cells.forEach((cell, index) => {
+                if (index < sites.length) {
+                    this.drawCellUI(index, sites, cells);
+                }
+            });
+        }
+        else {
+            // Clear hover controls when not hovering or editing
+            this.hoverControls = null;
+            this.hoveredButton = null;
+            
+            // Reset cursor
+            this.canvas.style.cursor = this.dragSiteIndex !== -1 ? 'grabbing' : 'default';
+        }
+
         // Draw edit mode overlays if enabled and no distortions
         if (this.editMode && !this.distortions.hasActive()) {
             this.drawCellBorders(cells);
-            this.drawSites(this.voronoi.sites);
+            this.drawSites(sites);
         }
     }
     
@@ -393,8 +443,15 @@ class MeshGradient {
      * @param {Number} y - Mouse Y position
      */
     startDrag(x, y) {
-        if (!this.editMode) return;
+        // Always find the closest site/cell regardless of edit mode
         this.dragSiteIndex = this.voronoi.findClosestSiteIndex(x, y);
+        
+        // In non-edit mode, we want to highlight the cell being dragged
+        if (!this.editMode && this.dragSiteIndex !== -1) {
+            this.hoverCellIndex = this.dragSiteIndex;
+            // Add a dragging class to the canvas to show it's in drag mode
+            this.canvas.classList.add('cell-dragging');
+        }
     }
     
     /**
@@ -403,7 +460,9 @@ class MeshGradient {
      * @param {Number} y - Mouse Y position
      */
     drag(x, y) {
-        if (!this.editMode || this.dragSiteIndex === -1) return;
+        // Allow dragging even when not in edit mode
+        if (this.dragSiteIndex === -1) return;
+        
         this.voronoi.moveSite(this.dragSiteIndex, x, y);
         this.render();
     }
@@ -412,7 +471,11 @@ class MeshGradient {
      * End site dragging
      */
     endDrag() {
-        this.dragSiteIndex = -1;
+        if (this.dragSiteIndex !== -1) {
+            // Remove the dragging class when done
+            this.canvas.classList.remove('cell-dragging');
+            this.dragSiteIndex = -1;
+        }
     }
     
     /**
@@ -782,4 +845,380 @@ class MeshGradient {
         const base = this.colorPalette.generate(this.colorHarmony, this.cellCount);
         return this.applyTheme(base);
     }
+
+    /**
+     * Set hover cell index
+     * @param {Number} x - Mouse X position
+     * @param {Number} y - Mouse Y position
+     */
+    setHoverPosition(x, y) {
+        if (this.distortions.hasActive() || this.dragSiteIndex !== -1) return;
+        
+        // Find which cell contains this point
+        const cellIndex = this.voronoi.findClosestSiteIndex(x, y);
+        
+        // Only re-render if the hover cell has changed
+        if (cellIndex !== this.hoverCellIndex) {
+            this.hoverCellIndex = cellIndex;
+            this.render();
+        }
+    }
+
+    /**
+     * Override color for a specific cell
+     * @param {Number} cellIndex - Index of the cell to update
+     * @param {String} hexColor - New hex color
+     * @param {Boolean} lock - Whether to lock this color (prevent regeneration)
+     */
+    setCellColor(cellIndex, hexColor, lock = false) {
+        if (cellIndex < 0 || cellIndex >= this.cellCount) return;
+        
+        // Convert hex to HSL
+        const hsl = this.colorPalette.hexToHSL(hexColor);
+        
+        const colorObj = {
+            h: hsl.h,
+            s: hsl.s,
+            l: hsl.l,
+            hex: hexColor
+        };
+        
+        // Store in the appropriate collection
+        if (lock) {
+            this.lockedColors[cellIndex] = colorObj;
+        } else {
+            this.colorOverrides[cellIndex] = colorObj;
+        }
+        
+        // Re-render with the new color
+        this.render();
+    }
+
+    /**
+     * Lock a cell's current color to prevent regeneration
+     * @param {Number} cellIndex - Index of the cell to lock
+     */
+    lockCellColor(cellIndex) {
+        if (cellIndex < 0 || cellIndex >= this.cellCount) return;
+        
+        // Get the current color (either override or from palette)
+        const currentColor = this.getCellColor(cellIndex);
+        
+        // Store in locked colors
+        this.lockedColors[cellIndex] = currentColor;
+        
+        // Remove from temporary overrides if present
+        delete this.colorOverrides[cellIndex];
+        
+        // Re-render
+        this.render();
+    }
+
+    /**
+     * Unlock a cell's color to allow regeneration
+     * @param {Number} cellIndex - Index of the cell to unlock
+     */
+    unlockCellColor(cellIndex) {
+        if (cellIndex < 0 || cellIndex >= this.cellCount) return;
+        
+        // Remove from locked colors
+        delete this.lockedColors[cellIndex];
+        
+        // Remove any temporary override
+        delete this.colorOverrides[cellIndex];
+        
+        // Re-render
+        this.render();
+    }
+
+    /**
+     * Check if a cell's color is locked
+     * @param {Number} cellIndex - Index of the cell to check
+     * @returns {Boolean} - Whether the cell's color is locked
+     */
+    isCellColorLocked(cellIndex) {
+        return this.lockedColors.hasOwnProperty(cellIndex);
+    }
+
+    /**
+     * Get the current color of a specific cell
+     * @param {Number} cellIndex - Index of the cell
+     * @returns {Object} - Color object with hex and hsl values
+     */
+    getCellColor(cellIndex) {
+        // Check for locked color first
+        if (this.lockedColors[cellIndex]) {
+            return this.lockedColors[cellIndex];
+        }
+        
+        // Then check for temporary override
+        if (this.colorOverrides[cellIndex]) {
+            return this.colorOverrides[cellIndex];
+        }
+        
+        // Otherwise use the color from the palette
+        if (this.currentColors && this.currentColors.length > 0) {
+            return this.currentColors[cellIndex % this.currentColors.length];
+        }
+        
+        // Default color if nothing else is available
+        return { h: 0, s: 0, l: 50, hex: '#808080' };
+    }
+
+    /**
+     * Reset hover state when mouse leaves
+     */
+    clearHover() {
+        if (this.hoverCellIndex !== -1) {
+            this.hoverCellIndex = -1;
+            this.render();
+        }
+    }
+
+    /**
+     * Calculate luminance from a color to determine if we need white or black contrast
+     * @param {Object} color - Color object with h, s, l properties
+     * @returns {Number} - Luminance value (0-1)
+     */
+    calculateLuminance(color) {
+        // Simple approximation: just use lightness value
+        return color.l / 100;
+    }
+
+    /**
+     * Helper method to draw a rounded rectangle
+     */
+    roundedRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+    }
+
+    /**
+     * Check if a point is within a specific hover control button
+     * @param {Number} x - Mouse X position
+     * @param {Number} y - Mouse Y position
+     * @param {String} control - Control type ('colorBtn' or 'lockBtn')
+     * @returns {Boolean} - Whether the point is within the control
+     */
+    isPointInControl(x, y, control) {
+        if (!this.hoverControls) return false;
+        
+        const btn = this.hoverControls[control];
+        if (!btn) return false;
+        
+        // Check if point is within circular button
+        const dx = x - btn.x;
+        const dy = y - btn.y;
+        return (dx * dx + dy * dy) <= (btn.radius * btn.radius);
+    }
+
+    /**
+     * Track which button is currently being hovered
+     * @param {Number} x - Mouse X position
+     * @param {Number} y - Mouse Y position
+     */
+    updateButtonHover(x, y) {
+        if (this.editMode) {
+            // In edit mode, check all cells' buttons
+            this.hoveredButton = null;
+            this.hoveredCellIndex = -1;
+            
+            if (this.hoverControls && this.hoverControls.cells) {
+                for (const cellIndex in this.hoverControls.cells) {
+                    const cellControls = this.hoverControls.cells[cellIndex];
+                    
+                    // Check color button
+                    const colorBtn = cellControls.colorBtn;
+                    const dx1 = x - colorBtn.x;
+                    const dy1 = y - colorBtn.y;
+                    if ((dx1 * dx1 + dy1 * dy1) <= (colorBtn.radius * colorBtn.radius)) {
+                        this.hoveredButton = 'colorBtn';
+                        this.hoveredCellIndex = parseInt(cellIndex);
+                        this.canvas.style.cursor = 'pointer';
+                        this.render();
+                        return;
+                    }
+                    
+                    // Check lock button
+                    const lockBtn = cellControls.lockBtn;
+                    const dx2 = x - lockBtn.x;
+                    const dy2 = y - lockBtn.y;
+                    if ((dx2 * dx2 + dy2 * dy2) <= (lockBtn.radius * lockBtn.radius)) {
+                        this.hoveredButton = 'lockBtn';
+                        this.hoveredCellIndex = parseInt(cellIndex);
+                        this.canvas.style.cursor = 'pointer';
+                        this.render();
+                        return;
+                    }
+                }
+            }
+            
+            // If we got here, not hovering over any button
+            if (this.hoveredButton) {
+                this.hoveredButton = null;
+                this.hoveredCellIndex = -1;
+                this.render();
+            }
+        } else {
+            // Original hover behavior for non-edit mode
+            if (!this.hoverControls) {
+                this.hoveredButton = null;
+                return;
+            }
+            
+            if (this.isPointInControl(x, y, 'colorBtn')) {
+                this.hoveredButton = 'colorBtn';
+                this.canvas.style.cursor = 'pointer';
+                this.render();
+            } else if (this.isPointInControl(x, y, 'lockBtn')) {
+                this.hoveredButton = 'lockBtn';
+                this.canvas.style.cursor = 'pointer';
+                this.render();
+            } else {
+                if (this.hoveredButton) {
+                    this.hoveredButton = null;
+                    this.render();
+                }
+            }
+        }
+    }
+
+    /**
+     * Draw UI elements for a cell (border, color picker, lock button)
+     * @param {Number} cellIndex - Index of the cell
+     * @param {Array} sites - Array of site coordinates
+     * @param {Array} cells - Array of cell objects
+     */
+    drawCellUI(cellIndex, sites, cells) {
+        const site = sites[cellIndex];
+        const cell = cells[cellIndex];
+        const cellColor = this.getCellColor(cellIndex);
+        const isLocked = this.isCellColorLocked(cellIndex);
+        
+        // Calculate contrasting colors
+        const luminance = this.calculateLuminance(cellColor);
+        const contrastColor = luminance > 0.5 ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
+        const innerGlowColor = luminance > 0.5 ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.6)';
+        
+        // Draw cell border as inner glow with different styles for locked/unlocked cells
+        if (cell && cell.path) {
+            this.ctx.save();
+            this.ctx.strokeStyle = contrastColor;
+            this.ctx.lineWidth = 3;
+            
+            // Use solid border for locked cells, dashed for unlocked
+            if (isLocked) {
+                this.ctx.setLineDash([]); // Solid line
+            } else {
+                this.ctx.setLineDash([5, 3]); // Dashed line
+            }
+            
+            this.ctx.shadowColor = innerGlowColor;
+            this.ctx.shadowBlur = 10;
+            this.ctx.shadowOffsetX = 0;
+            this.ctx.shadowOffsetY = 0;
+            
+            // Draw the cell path
+            this.ctx.beginPath();
+            const path = new Path2D(cell.path);
+            this.ctx.stroke(path);
+            this.ctx.restore();
+        }
+        
+        // Store button positions and sizes for hit testing
+        if (this.editMode) {
+            // In edit mode, store all button positions in a nested structure
+            if (!this.hoverControls.cells) {
+                this.hoverControls.cells = {};
+            }
+            
+            this.hoverControls.cells[cellIndex] = {
+                colorBtn: { x: site[0] - 12, y: site[1], radius: 8 },
+                lockBtn: { x: site[0] + 12, y: site[1], radius: 8 }
+            };
+        } else {
+            // In hover mode, just store the current cell's buttons
+            this.hoverControls = {
+                cell: cellIndex,
+                colorBtn: { x: site[0] - 12, y: site[1], radius: 8 },
+                lockBtn: { x: site[0] + 12, y: site[1], radius: 8 }
+            };
+        }
+        
+        // Draw the pill background (rounded rectangle)
+        this.ctx.fillStyle = 'rgba(128, 128, 128, 0.7)';
+        this.ctx.beginPath();
+        this.roundedRect(this.ctx, site[0] - 24, site[1] - 12, 48, 24, 12);
+        this.ctx.fill();
+        
+        // Draw the divider between buttons
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        this.ctx.fillRect(site[0], site[1] - 10, 1, 20);
+        
+        // Check if color button is being hovered
+        const isColorBtnHovered = this.hoveredButton === 'colorBtn' && 
+                                 (this.editMode ? this.hoveredCellIndex === cellIndex : true);
+        
+        // Draw color picker circle button (left side of pill) with hover effect
+        this.ctx.beginPath();
+        // Draw button background with hover effect
+        this.ctx.fillStyle = isColorBtnHovered ? 'rgba(160, 160, 160, 0.9)' : 'rgba(128, 128, 128, 0.7)';
+        this.ctx.arc(site[0] - 12, site[1], 8, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Draw outer circle (border)
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = contrastColor;
+        this.ctx.lineWidth = 1;
+        this.ctx.arc(site[0] - 12, site[1], 8, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Draw inner circle with cell color
+        this.ctx.fillStyle = cellColor.hex;
+        this.ctx.beginPath();
+        this.ctx.arc(site[0] - 12, site[1], 5, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Check if lock button is being hovered
+        const isLockBtnHovered = this.hoveredButton === 'lockBtn' && 
+                                (this.editMode ? this.hoveredCellIndex === cellIndex : true);
+        
+        // Draw lock/unlock button with hover effect
+        this.ctx.beginPath();
+        this.ctx.fillStyle = isLockBtnHovered ? 'rgba(160, 160, 160, 0.9)' : 'rgba(128, 128, 128, 0.7)';
+        this.ctx.arc(site[0] + 12, site[1], 8, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Draw button border
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = contrastColor;
+        this.ctx.lineWidth = 1;
+        this.ctx.arc(site[0] + 12, site[1], 8, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Draw lock/unlock icon
+        this.ctx.fillStyle = contrastColor;
+        this.ctx.font = '11px bootstrap-icons';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        // Use Bootstrap lock icons
+        const lockIcon = isLocked ? '\uF47A' : '\uF5FF'; // bootstrap-icons: bi-lock-fill vs bi-unlock-fill
+        this.ctx.fillText(lockIcon, site[0] + 12, site[1]);
+        
+        // Set cursor to pointer
+        this.canvas.style.cursor = 'pointer';
+    }
 }
+
+// Make sure the class is globally available
+window.MeshGradient = MeshGradient;
