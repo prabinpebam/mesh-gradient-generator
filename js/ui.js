@@ -115,7 +115,14 @@ function initializeUI() {
     cellCountSlider.addEventListener('input', function() {
         const count = parseInt(this.value);
         cellCountValue.textContent = count;
+        
+        // Only update the cell count without forcing color regeneration
+        // The original colors should be preserved as much as possible
+        meshGradient.data.lastCellCount = meshGradient.data.cellCount || 0;
         meshGradient.setCellCount(count);
+        
+        // Update the swatches without triggering a full color regeneration
+        setTimeout(updateSwatches, 100);
     });
     
     // Blur amount slider change
@@ -222,7 +229,7 @@ function initializeUI() {
         // For dragging in edit mode
         meshGradient.drag(x, y);
         
-        // For hover highlighting
+        // For hover highlighting - this should not affect colors
         meshGradient.setHoverPosition(x, y);
         
         // Update button hover state
@@ -396,7 +403,9 @@ function initializeUI() {
     colorPicker.addEventListener('input', function(e) {
         if (selectedCellIndex >= 0) {
             // Live preview as user selects color (temporary override)
-            meshGradient.setCellColor(selectedCellIndex, e.target.value, false);
+            const isLocked = meshGradient.isCellColorLocked(selectedCellIndex);
+            // Important: Pass true as third parameter to avoid color regeneration
+            meshGradient.setCellColor(selectedCellIndex, e.target.value, isLocked);
         }
     });
     
@@ -404,6 +413,7 @@ function initializeUI() {
         if (selectedCellIndex >= 0) {
             // Final color selection - check if we should lock this color
             const isLocked = meshGradient.isCellColorLocked(selectedCellIndex);
+            // Important: Pass true as third parameter to avoid color regeneration
             meshGradient.setCellColor(selectedCellIndex, e.target.value, isLocked);
             notifyColorChange({ 
                 source: 'color-picker', 
@@ -626,8 +636,10 @@ window.addEventListener('load', () => {
   const generateBtn = document.getElementById('generateBtn');
   if (generateBtn) {
     generateBtn.addEventListener('click', () => {
-      // Allow time for gradient to render
-      setTimeout(updateSwatches, 100);
+        // This should trigger a full regeneration, no preserveColors
+        meshGradient.generate();
+        // Allow time for gradient to render
+        setTimeout(updateSwatches, 100);
     });
   }
   

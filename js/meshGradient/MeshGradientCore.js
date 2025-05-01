@@ -77,8 +77,9 @@ class MeshGradientCore {
     /**
      * Render the gradient on the canvas
      * @param {Array} colors - Optional array of colors
+     * @param {Boolean} preserveColors - If true, don't regenerate colors (for hover/drag)
      */
-    render(colors = null) {
+    render(colors = null, preserveColors = false) {
         // Clear offscreen canvas
         this.offCtx.clearRect(0, 0, this.width, this.height);
         
@@ -86,18 +87,20 @@ class MeshGradientCore {
         const cells = this.data.voronoi.getCells();
         const sites = this.data.voronoi.sites;
         
-        // Process colors
-        if (!colors) {
-            colors = this.data.processColors();
-        } else {
-            this.data.currentColors = colors;
+        // Process colors only if not preserving colors (hover/drag should preserve)
+        if (!preserveColors) {
+            if (!colors) {
+                colors = this.data.processColors();
+            } else {
+                this.data.currentColors = colors;
+            }
+            
+            // Notify color changes - only when colors actually change
+            const colorsChangedEvent = new CustomEvent('meshColorsChanged', {
+                detail: { colors: this.data.currentColors }
+            });
+            document.dispatchEvent(colorsChangedEvent);
         }
-        
-        // Notify color changes
-        const colorsChangedEvent = new CustomEvent('meshColorsChanged', {
-            detail: { colors: this.data.currentColors }
-        });
-        document.dispatchEvent(colorsChangedEvent);
         
         // Draw cells to offscreen canvas
         this.renderer.drawCellsToCanvas(this.offCtx, cells, this.data);
@@ -153,7 +156,8 @@ class MeshGradientCore {
         if (this.dragSiteIndex === -1) return;
         
         this.data.voronoi.moveSite(this.dragSiteIndex, x, y);
-        this.render();
+        // Pass true to preserve colors during drag
+        this.render(null, true);
     }
     
     endDrag() {
@@ -173,7 +177,8 @@ class MeshGradientCore {
         
         if (cellIndex !== this.hoverCellIndex) {
             this.hoverCellIndex = cellIndex;
-            this.render();
+            // Always preserve colors during hover (true)
+            this.render(null, true);
         }
     }
     
@@ -183,7 +188,8 @@ class MeshGradientCore {
     clearHover() {
         if (this.hoverCellIndex !== -1) {
             this.hoverCellIndex = -1;
-            this.render();
+            // Always preserve colors when clearing hover
+            this.render(null, true);
         }
     }
     
@@ -198,7 +204,10 @@ class MeshGradientCore {
             this.hoveredButton = result.button;
             this.hoveredCellIndex = result.cellIndex;
             this.canvas.style.cursor = result.cursor;
-            if (result.render) this.render();
+            if (result.render) {
+                // Always preserve colors during button hover updates
+                this.render(null, true);
+            }
         }
     }
     
@@ -237,17 +246,20 @@ class MeshGradientCore {
     
     setCellColor(cellIndex, hexColor, lock = false) {
         this.data.setCellColor(cellIndex, hexColor, lock);
-        this.render();
+        // Don't regenerate all colors, just render with current colors preserved
+        this.render(null, true);
     }
     
     lockCellColor(cellIndex) {
         this.data.lockCellColor(cellIndex);
-        this.render();
+        // Don't regenerate colors, just render with current colors preserved
+        this.render(null, true);
     }
     
     unlockCellColor(cellIndex) {
         this.data.unlockCellColor(cellIndex);
-        this.render();
+        // Don't regenerate colors, just render with current colors preserved
+        this.render(null, true);
     }
     
     isCellColorLocked(cellIndex) {

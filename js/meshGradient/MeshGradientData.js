@@ -109,10 +109,27 @@ class MeshGradientData {
      * @returns {Array} - Array of color objects
      */
     processColors() {
-        // Apply any existing logic for color processing
+        // Store locked colors to preserve them
+        const lockedColors = {};
+        if (this.lockedCells && this.currentColors) {
+            for (let i = 0; i < this.cellCount; i++) {
+                if (this.lockedCells[i]) {
+                    lockedColors[i] = this.currentColors[i];
+                }
+            }
+        }
         
-        // Build color palette using the theme
+        // Build the color palette based on harmony and theme
         const colors = this.buildPalette();
+        
+        // Restore locked colors
+        if (this.lockedCells) {
+            for (const cellIndex in lockedColors) {
+                if (lockedColors[cellIndex]) {
+                    colors[cellIndex] = lockedColors[cellIndex];
+                }
+            }
+        }
         
         this.currentColors = colors;
         return colors;
@@ -450,6 +467,28 @@ class MeshGradientData {
     }
     
     /**
+     * Set the cell count and regenerate the Voronoi diagram
+     * @param {Number} count - Number of cells
+     * @param {Function} callback - Callback function
+     * @returns {Object} - The updated data object
+     */
+    setCellCount(count, callback = null) {
+        this.cellCount = count;
+        this.voronoi.setCellCount(count);
+        
+        // Only regenerate colors if count changed significantly
+        const shouldRegenerateColors = Math.abs(count - this.lastCellCount) > 1;
+        this.lastCellCount = count;
+        
+        if (shouldRegenerateColors) {
+            this.processColors();
+        }
+        
+        if (callback) callback();
+        return this;
+    }
+    
+    /**
      * Adjust colors with options
      * @param {Object} options - Adjustment options
      * @returns {Array} - Array of adjusted colors
@@ -469,20 +508,37 @@ class MeshGradientData {
     setCellColor(cellIndex, hexColor, lock = false) {
         if (cellIndex < 0 || cellIndex >= this.cellCount) return;
         
+        // Convert hex color to HSL
         const hsl = this.colorPalette.hexToHSL(hexColor);
         
-        const colorObj = {
+        // Create color object
+        const color = {
+            hex: hexColor,
             h: hsl.h,
             s: hsl.s,
-            l: hsl.l,
-            hex: hexColor
+            l: hsl.l
         };
         
-        if (lock) {
-            this.lockedColors[cellIndex] = colorObj;
-        } else {
-            this.colorOverrides[cellIndex] = colorObj;
+        // Update the color in the current colors array
+        if (!this.currentColors) {
+            this.currentColors = [];
         }
+        
+        // Make sure the array is large enough
+        while (this.currentColors.length <= cellIndex) {
+            this.currentColors.push(null);
+        }
+        
+        // Set the color
+        this.currentColors[cellIndex] = color;
+        
+        // Lock if needed
+        if (lock) {
+            this.lockCellColor(cellIndex);
+        }
+        
+        // Important - do NOT regenerate all colors!
+        // Just update the specific one
     }
     
     /**
