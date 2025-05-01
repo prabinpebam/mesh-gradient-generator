@@ -861,142 +861,238 @@ function logAllCellColors(source = 'unknown') {
 
 /**
  * Update the color swatches based on the current colors in the gradient
- * This is the main implementation that should be used
  */
 function updateSwatches() {
-  if (!window.meshGradient) return;
-  
-  // Get the swatches container
-  const swatchContainer = document.getElementById('colorSwatches');
-  if (!swatchContainer) return;
-  
-  // Get all unique colors from the gradient
-  const uniqueColors = [];
-  
   try {
-    // Use getAllColors method to get all colors properly
-    if (typeof meshGradient.getAllColors === 'function') {
-      const allColors = meshGradient.getAllColors();
-      console.log(`Update swatches: Found ${allColors.length} unique colors in gradient`, allColors);
-      
-      allColors.forEach(color => {
-        const hexColor = typeof color === 'string' ? color : (color && color.hex);
-        if (hexColor && !uniqueColors.includes(hexColor)) {
-          uniqueColors.push(hexColor);
-        }
-      });
-    } 
-    // Fallback to direct access to cells if getAllColors doesn't work
-    else if (typeof meshGradient.getCellCount === 'function') {
-      const cellCount = meshGradient.getCellCount();
-      console.log(`Update swatches: Getting colors from ${cellCount} cells`);
-      
-      for (let i = 0; i < cellCount; i++) {
-        try {
-          const color = meshGradient.getCellColor(i);
-          if (color && color.hex && !uniqueColors.includes(color.hex)) {
-            uniqueColors.push(color.hex);
+    // Defensive check - ensure meshGradient is available before proceeding
+    if (!window.meshGradient) {
+      console.log("meshGradient not available yet, skipping swatch update");
+      return;
+    }
+    
+    // Get the swatches container
+    const swatchContainer = document.getElementById('colorSwatches');
+    if (!swatchContainer) return;
+    
+    /**
+     * Custom function to style the color picker hover controls
+     * This should be called after meshGradient is initialized
+     */
+    function setupColorPickerStyles() {
+      // Check if meshGradient exposes a method for styling hover controls
+      if (typeof meshGradient.setHoverControlStyles === 'function') {
+        meshGradient.setHoverControlStyles({
+          buttonBgOpacity: 0.3,      // 30% opacity for background
+          pillBgOpacity: 0.3,        // 30% opacity for pill background
+          borderWidth: 2,            // 2px border width
+          // The border color is already handled with contrast logic
+        });
+        console.log('Applied color picker styles via setHoverControlStyles API');
+      } else {
+        // If no direct styling method exists, we can try to patch the render function
+        // We should only do this once to avoid multiple patching
+        if (!window._colorPickerStylesPatched) {
+          window._colorPickerStylesPatched = true;
+          
+          // Try to access the rendering context
+          const originalRenderControls = meshGradient.renderControls || 
+                                         meshGradient.renderer?.renderControls ||
+                                         meshGradient._renderHoverControls;
+          
+          if (typeof originalRenderControls === 'function') {
+            // Override the rendering function to add our custom styles
+            const patchedRender = function(...args) {
+              // Call original rendering first
+              const result = originalRenderControls.apply(this, args);
+              
+              // If we have access to the canvas context, we can modify styles
+              if (args[0] && args[0].globalAlpha !== undefined) {
+                const ctx = args[0];
+                
+                // Store the original values to restore later
+                const originalAlpha = ctx.globalAlpha;
+                const originalLineWidth = ctx.lineWidth;
+                
+                // Apply color picker button and pill background styles
+                ctx.globalAlpha = 0.3; // 30% opacity for background
+                ctx.lineWidth = 2;     // 2px border width
+                
+                // Re-render the paths with our custom styles
+                // We'll need to check which paths exist in the context
+                if (ctx.fillStyle && ctx._lastPillPath) {
+                  ctx.fill(ctx._lastPillPath);
+                }
+                
+                if (ctx.strokeStyle && ctx._lastPillPath) {
+                  ctx.stroke(ctx._lastPillPath);
+                }
+                
+                // Restore original context settings
+                ctx.globalAlpha = originalAlpha;
+                ctx.lineWidth = originalLineWidth;
+              }
+              
+              return result;
+            };
+            
+            // Apply the patched function
+            if (meshGradient.renderControls) {
+              meshGradient.renderControls = patchedRender;
+            } else if (meshGradient.renderer?.renderControls) {
+              meshGradient.renderer.renderControls = patchedRender;
+            } else if (meshGradient._renderHoverControls) {
+              meshGradient._renderHoverControls = patchedRender;
+            }
+            
+            // Also try to find and patch any render methods that might draw the hover controls
+            if (meshGradient.render) {
+              const originalRender = meshGradient.render;
+              meshGradient.render = function(...args) {
+                const result = originalRender.apply(this, args);
+                // Force a call to setupColorPickerStyles after each render
+                setTimeout(() => setupColorPickerStyles(), 0);
+                return result;
+              };
+            }
+            
+            console.log('Color picker hover controls styled with custom patched renderer');
           }
-        } catch (err) {
-          console.warn(`Error getting color for cell ${i}:`, err);
         }
       }
     }
-    // Other fallbacks as needed
-    else {
-      // Try to determine where cells are stored
-      let cells = null;
+    
+    // Try to set up the color picker styles
+    setupColorPickerStyles();
+    
+    // Get all unique colors from the gradient
+    const uniqueColors = [];
+    
+    try {
+      // Try multiple approaches to get colors in order of reliability
       
-      if (meshGradient.data && meshGradient.data.cells) {
-        cells = meshGradient.data.cells;
-      } else if (meshGradient.cells) {
-        cells = meshGradient.cells;
-      } else if (meshGradient.renderer && meshGradient.renderer.cells) {
-        cells = meshGradient.renderer.cells;
-      } else if (meshGradient.data && meshGradient.data.voronoi && meshGradient.data.voronoi.cells) {
-        cells = meshGradient.data.voronoi.cells;
-      } else if (meshGradient.voronoi && meshGradient.voronoi.cells) {
-        cells = meshGradient.voronoi.cells;
-      }
-      
-      if (cells && cells.length > 0) {
-        for (let i = 0; i < cells.length; i++) {
-          try {
-            // Try standard getter first
-            let cellColor = null;
-            
-            if (typeof meshGradient.getCellColor === 'function') {
-              cellColor = meshGradient.getCellColor(i);
-            } else if (cells[i] && cells[i].color) {
-              cellColor = cells[i].color;
-            }
-            
-            if (cellColor) {
-              const hexColor = typeof cellColor === 'string' ? cellColor : (cellColor.hex || null);
+      // Approach 1: Use getAllColors if available
+      if (typeof meshGradient.getAllColors === 'function') {
+        try {
+          const allColors = meshGradient.getAllColors();
+          if (allColors && allColors.length > 0) {
+            allColors.forEach(color => {
+              const hexColor = typeof color === 'string' ? color : (color && color.hex);
               if (hexColor && !uniqueColors.includes(hexColor)) {
                 uniqueColors.push(hexColor);
               }
-            }
-          } catch (err) {
-            console.warn(`Error getting color for cell ${i} in updateSwatches:`, err);
+            });
           }
+        } catch (err) {
+          console.warn("Error using getAllColors:", err);
         }
       }
-    }
-    
-    console.log(`Update swatches: Found ${uniqueColors.length} unique colors to display:`, uniqueColors);
-    
-    // Clear existing swatches
-    swatchContainer.innerHTML = '';
-    
-    // Create flex wrap container for all swatches
-    const swatchesWrapper = document.createElement('div');
-    swatchesWrapper.style.display = 'flex';
-    swatchesWrapper.style.flexWrap = 'wrap';
-    swatchesWrapper.style.gap = '5px';
-    swatchesWrapper.style.justifyContent = 'center';
-    swatchesWrapper.style.maxHeight = '200px'; // Add max height
-    swatchesWrapper.style.overflowY = 'auto'; // Add scroll if too many swatches
-    swatchesWrapper.style.padding = '5px';
-    
-    // Create swatches for ALL unique colors - NO LIMIT
-    uniqueColors.forEach(color => {
-      const swatch = document.createElement('div');
-      swatch.className = 'color-swatch';
-      swatch.style.width = '25px'; // Make them smaller to fit more
-      swatch.style.height = '25px';
-      swatch.style.backgroundColor = color;
-      swatch.style.border = '1px solid #ccc'; // Just a solid border, no dashed
-      swatch.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-      swatch.style.borderRadius = '4px';
-      swatch.style.cursor = 'pointer';
-      swatch.title = color; // Show hex color on hover
       
-      // Add click event to use this color
-      swatch.addEventListener('click', () => {
-        if (window.meshGradient) {
-          // If in edit mode and a cell is selected, apply to that cell
-          if (document.getElementById('editModeToggle').checked && 
-              meshGradient.hoverCellIndex >= 0) {
-            meshGradient.setCellColor(meshGradient.hoverCellIndex, color);
-          } else {
-            // Otherwise use as base color for new gradient
-            if (typeof meshGradient.setBaseColor === 'function') {
-              meshGradient.setBaseColor(color);
-              meshGradient.generate();
+      // Approach 2: Use data.currentColors directly if available
+      if (uniqueColors.length === 0 && meshGradient.data && meshGradient.data.currentColors) {
+        try {
+          meshGradient.data.currentColors.forEach(color => {
+            if (color && color.hex && !uniqueColors.includes(color.hex)) {
+              uniqueColors.push(color.hex);
+            }
+          });
+        } catch (err) {
+          console.warn("Error accessing currentColors:", err);
+        }
+      }
+      
+      // Approach 3: Try using getCellColor for each cell
+      if (uniqueColors.length === 0 && typeof meshGradient.getCellColor === 'function') {
+        try {
+          // Get cell count first
+          const cellCount = typeof meshGradient.getCellCount === 'function' ? 
+            meshGradient.getCellCount() : 
+            (meshGradient.data && meshGradient.data.cellCount ? meshGradient.data.cellCount : 5);
+          
+          for (let i = 0; i < cellCount; i++) {
+            const color = meshGradient.getCellColor(i);
+            if (color && color.hex && !uniqueColors.includes(color.hex)) {
+              uniqueColors.push(color.hex);
             }
           }
+        } catch (err) {
+          console.warn("Error using getCellColor:", err);
         }
+      }
+      
+      // Approach 4: Last resort - use colorPalette's lastGeneratedColors
+      if (uniqueColors.length === 0 && meshGradient.data && meshGradient.data.colorPalette && 
+          meshGradient.data.colorPalette.lastGeneratedColors) {
+        try {
+          meshGradient.data.colorPalette.lastGeneratedColors.forEach(color => {
+            const hexColor = typeof color === 'string' ? color : (color && color.hex);
+            if (hexColor && !uniqueColors.includes(hexColor)) {
+              uniqueColors.push(hexColor);
+            }
+          });
+        } catch (err) {
+          console.warn("Error using lastGeneratedColors:", err);
+        }
+      }
+      
+      // If we still have no colors, use defaults
+      if (uniqueColors.length === 0) {
+        // Create some default colors so something is shown
+        uniqueColors.push('#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6');
+      }
+      
+      // Clear existing swatches
+      swatchContainer.innerHTML = '';
+      
+      // Create flex wrap container for all swatches
+      const swatchesWrapper = document.createElement('div');
+      swatchesWrapper.style.display = 'flex';
+      swatchesWrapper.style.flexWrap = 'wrap';
+      swatchesWrapper.style.gap = '5px';
+      swatchesWrapper.style.justifyContent = 'center';
+      swatchesWrapper.style.maxHeight = '200px';
+      swatchesWrapper.style.overflowY = 'auto';
+      swatchesWrapper.style.padding = '5px';
+      
+      // Create swatches for ALL unique colors
+      uniqueColors.forEach(color => {
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.width = '25px';
+        swatch.style.height = '25px';
+        swatch.style.backgroundColor = color;
+        swatch.style.border = '1px solid #ccc';
+        swatch.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        swatch.style.borderRadius = '4px';
+        swatch.style.cursor = 'pointer';
+        swatch.title = color;
+        
+        // Add click event to use this color
+        swatch.addEventListener('click', () => {
+          if (window.meshGradient) {
+            // If in edit mode and a cell is selected, apply to that cell
+            if (document.getElementById('editModeToggle').checked && 
+                meshGradient.hoverCellIndex >= 0) {
+              meshGradient.setCellColor(meshGradient.hoverCellIndex, color);
+            } else {
+              // Otherwise use as base color for new gradient
+              if (typeof meshGradient.setBaseColor === 'function') {
+                meshGradient.setBaseColor(color);
+                meshGradient.generate();
+              }
+            }
+          }
+        });
+        
+        swatchesWrapper.appendChild(swatch);
       });
       
-      swatchesWrapper.appendChild(swatch);
-    });
-    
-    // Add the wrapper to the main container
-    swatchContainer.appendChild(swatchesWrapper);
-    
-  } catch (err) {
-    console.warn("Error getting colors for swatches:", err);
+      // Add the wrapper to the main container
+      swatchContainer.appendChild(swatchesWrapper);
+    } catch (err) {
+      console.warn("Error getting colors for swatches:", err);
+    }
+  } catch (outerErr) {
+    console.error("Critical error in updateSwatches:", outerErr);
   }
 }
 
