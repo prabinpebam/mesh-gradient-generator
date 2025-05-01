@@ -74,14 +74,15 @@
                 </div>
                 
                 <!-- Canvas centered in column -->
-                <div class="canvas-container flex-grow-1 d-flex justify-content-center align-items-center position-relative p-2 rounded">
+                <div class="canvas-container flex-grow-1 d-flex flex-column justify-content-center align-items-center position-relative p-2 rounded">
                     <canvas id="gradientCanvas"></canvas>
                     <!-- Hidden color picker for cell color selection -->
                     <input type="color" id="cellColorPicker" class="cell-color-picker" />
+                    
+                    <!-- Color swatches moved inside canvas container -->
+                    <div id="colorSwatches" class="d-flex justify-content-center mt-3 flex-wrap gap-2" style="min-height: 40px; padding: 5px; width: 100%;"></div>
                 </div>
 
-                <!-- Color swatches container as a separate element after the canvas -->
-                <div id="colorSwatches" class="d-flex justify-content-center mt-3 flex-wrap gap-2" style="min-height: 40px; padding: 5px;"></div>
             </div>
 
             <!-- Column 2 - Sidebar with fixed width (no ms-3 as we're using gap-3 on parent) -->
