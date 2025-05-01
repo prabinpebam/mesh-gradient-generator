@@ -70,8 +70,21 @@ class MeshGradientCore {
      * @param {Object} options - Generation options
      */
     generate(options = {}) {
-        this.data.setupGeneration(options);
-        this.render();
+        // When cell count changes, force immediate regeneration
+        if (options.cellCount !== undefined && 
+            options.cellCount !== this.data.cellCount) {
+            console.log(`Cell count changing from ${this.data.cellCount} to ${options.cellCount}`);
+            
+            // Make sure this is handled with high priority
+            requestAnimationFrame(() => {
+                this.data.setupGeneration(options);
+                this.render();
+            });
+        } else {
+            // Normal generation for other cases
+            this.data.setupGeneration(options);
+            this.render();
+        }
     }
     
     /**
@@ -237,10 +250,14 @@ class MeshGradientCore {
     getMaxBlurAmount() { return this.data.maxBlurAmount; }
     setBlurAmount(amount) { 
         this.data.blurAmount = Math.min(amount, this.data.maxBlurAmount);
-        this.render();
+        // Use preserveColors=true to apply blur without regenerating colors
+        this.render(null, true);
     }
     
-    setCellCount(count) { return this.data.setCellCount(count, () => this.render()); }
+    setCellCount(count) { 
+        // When changing cell count, regenerate the gradient without preserving colors
+        return this.data.setCellCount(count, () => this.render()); 
+    }
     setColorHarmony(harmonyType) { this.data.setColorHarmony(harmonyType, () => this.render()); }
     setColorTheme(theme) { this.data.setColorTheme(theme, () => this.render()); }
     

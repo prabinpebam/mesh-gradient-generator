@@ -429,11 +429,29 @@ class MeshGradientData {
      * @param {String} harmonyType - Color harmony type
      * @param {Function} renderCallback - Callback to trigger render
      */
-    setColorHarmony(harmonyType, renderCallback) {
+    setColorHarmony(harmonyType, renderCallback = null) {
+        // Store old values to preserve
+        const oldHarmony = this.colorHarmony;
+        const oldBaseHue = this.colorPalette.baseHue;
+        
+        // Set new harmony
         this.colorHarmony = harmonyType;
-        const colors = this.buildPalette();
-        this.currentColors = colors;
-        if (renderCallback) renderCallback(colors);
+        
+        // Use same hue for consistency when changing harmony type
+        const colors = this.colorPalette.generate(harmonyType, this.cellCount, true);
+        
+        // Apply theme if active
+        const themedColors = this.colorTheme !== 'none' ? this.applyTheme(colors) : colors;
+        
+        // Store processed colors
+        this.currentColors = themedColors;
+        
+        // Call render callback if provided
+        if (renderCallback) {
+            renderCallback(themedColors);
+        }
+        
+        return themedColors;
     }
     
     /**
@@ -454,37 +472,25 @@ class MeshGradientData {
      * @param {Number} count - New cell count
      * @param {Function} generateCallback - Callback to regenerate gradient
      */
-    setCellCount(count, generateCallback) {
+    setCellCount(count, generateCallback = null) {
+        // Store the old count
+        const oldCount = this.cellCount;
+        
+        // Set and validate new count
         this.cellCount = Math.max(this.minCellCount, Math.min(this.maxCellCount, count));
         
+        // Update Voronoi sites
+        this.voronoi.setCellCount(this.cellCount);
+
+        // Always regenerate colors when cell count changes
+        // This follows the expected UX where changing cell count should generate a new gradient
+        this.processColors();
+        
+        // Call callback if provided
         if (generateCallback) {
-            generateCallback({
-                cellCount: this.cellCount
-            });
+            generateCallback();
         }
         
-        return this.cellCount;
-    }
-    
-    /**
-     * Set the cell count and regenerate the Voronoi diagram
-     * @param {Number} count - Number of cells
-     * @param {Function} callback - Callback function
-     * @returns {Object} - The updated data object
-     */
-    setCellCount(count, callback = null) {
-        this.cellCount = count;
-        this.voronoi.setCellCount(count);
-        
-        // Only regenerate colors if count changed significantly
-        const shouldRegenerateColors = Math.abs(count - this.lastCellCount) > 1;
-        this.lastCellCount = count;
-        
-        if (shouldRegenerateColors) {
-            this.processColors();
-        }
-        
-        if (callback) callback();
         return this;
     }
     

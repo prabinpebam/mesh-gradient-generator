@@ -90,10 +90,11 @@ class ColorPalette {
      * Generate a color palette based on harmony type
      * @param {String} harmonyType - Type of color harmony
      * @param {Number} count - Number of colors to generate
+     * @param {Boolean} preserveHue - Whether to preserve the current base hue
      * @returns {Array} - Array of color objects
      */
-    generate(harmonyType, count = 5) {
-        if (!this.baseHue) {
+    generate(harmonyType, count = 5, preserveHue = false) {
+        if (!this.baseHue || !preserveHue) {
             this.randomizeBaseHue();
         }
         

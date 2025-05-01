@@ -105,46 +105,45 @@ function initializeUI() {
         });
     }
     
-    // Generate button click
+    // Generate button click - keep for compatibility but not needed for normal use
     generateBtn.addEventListener('click', function() {
         meshGradient.generate();
         notifyColorChange({ source: 'generate-button' });
     });
     
-    // Cell count slider change
+    // Cell count slider change - update immediately on input
     cellCountSlider.addEventListener('input', function() {
         const count = parseInt(this.value);
         cellCountValue.textContent = count;
         
-        // Only update the cell count without forcing color regeneration
-        // The original colors should be preserved as much as possible
-        meshGradient.data.lastCellCount = meshGradient.data.cellCount || 0;
-        meshGradient.setCellCount(count);
-        
-        // Update the swatches without triggering a full color regeneration
-        setTimeout(updateSwatches, 100);
+        // Immediately generate new gradient with new cell count
+        // This ensures real-time updates while dragging the slider
+        meshGradient.generate({ 
+            cellCount: count,
+            keepColors: false  // Force complete regeneration with new cells
+        });
     });
     
-    // Blur amount slider change
+    // Blur amount slider change - update immediately on input
     blurAmountSlider.addEventListener('input', function() {
         const amount = parseInt(this.value);
         blurAmountValue.textContent = amount;
         meshGradient.setBlurAmount(amount);
     });
     
-    // Color harmony select change
+    // Color harmony select change - update immediately
     colorHarmonySelect.addEventListener('change', function() {
         meshGradient.setColorHarmony(this.value);
         notifyColorChange({ source: 'harmony-change', harmony: this.value });
     });
     
-    // Color theme select change
+    // Color theme select change - update immediately
     colorThemeSelect.addEventListener('change',()=>{
         meshGradient.setColorTheme(colorThemeSelect.value);
         notifyColorChange({ source: 'theme-change', theme: colorThemeSelect.value });
     });
     
-    // HSL Adjustment Buttons
+    // HSL Adjustment Buttons - all update immediately
     document.getElementById('hueDecrease').addEventListener('click', function() {
         meshGradient.adjustColors({ hue: -10 }); // Decrease hue by 10 degrees
         notifyColorChange({ source: 'hue-decrease', adjustment: -10 });
@@ -175,19 +174,28 @@ function initializeUI() {
         notifyColorChange({ source: 'lightness-increase', adjustment: 5 });
     });
     
-    // Edit mode toggle
+    // Edit mode toggle - updates immediately
     editModeToggle.addEventListener('change', function() {
         meshGradient.setEditMode(this.checked);
     });
     
-    // Export PNG button click
-    exportPngBtn.addEventListener('click', function() {
-        meshGradient.exportAsPNG();
+    // Canvas resize - updates immediately
+    canvasWidthInput.addEventListener('change', function() {
+        applyCanvasResize();
     });
     
-    // Canvas resize
-    resizeCanvasBtn.addEventListener('click', () => {
-        const width  = parseInt(canvasWidthInput.value);
+    canvasHeightInput.addEventListener('change', function() {
+        applyCanvasResize();
+    });
+    
+    // Keep the button for large changes, but also allow direct input changes
+    resizeCanvasBtn.addEventListener('click', function() {
+        applyCanvasResize();
+    });
+    
+    // Helper function for consistent canvas resize behavior
+    function applyCanvasResize() {
+        const width = parseInt(canvasWidthInput.value);
         const height = parseInt(canvasHeightInput.value);
 
         if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
@@ -198,20 +206,20 @@ function initializeUI() {
         const constraints = meshGradient.resizeCanvas(width, height); // fresh values
 
         // Reflect new blur limits
-        blurAmountSlider.min  = constraints.minBlurAmount ?? 0; // always 0
-        blurAmountSlider.max  = constraints.maxBlurAmount;
+        blurAmountSlider.min = constraints.minBlurAmount ?? 0; // always 0
+        blurAmountSlider.max = constraints.maxBlurAmount;
         blurAmountSlider.value = constraints.currentBlurAmount;
         blurAmountValue.textContent = constraints.currentBlurAmount;
-        maxBlurValue.textContent    = constraints.maxBlurAmount;
+        maxBlurValue.textContent = constraints.maxBlurAmount;
 
-        // Re‑render with updated canvas
+        // Re-render with updated canvas
         meshGradient.render();
 
         // If Twist is selected, rebuild its slider limits
-        if (distortionTypeSelect.value === 'twist'){
+        if (distortionTypeSelect.value === 'twist') {
             rebuildDistortionParams('twist');
         }
-    });
+    }
     
     // Mouse events for cell manipulation
     canvas.addEventListener('mousedown', function(e) {
@@ -495,7 +503,11 @@ function initializeUI() {
                 o.value=v; o.textContent=v; sel.appendChild(o);
             });
             sel.value=cfg.val;
-            sel.oninput=()=>{ optsObj[key]=sel.value; meshGradient.setDistortionStack([currentDistortion]); };
+            // Update immediately on input
+            sel.oninput=()=>{ 
+                optsObj[key]=sel.value; 
+                meshGradient.setDistortionStack([currentDistortion]); 
+            };
             wrap.appendChild(sel);
         }else{
             const input=document.createElement('input');
@@ -503,7 +515,12 @@ function initializeUI() {
             input.id=id;
             input.min=cfg.min; input.max=cfg.max; input.step=cfg.step; input.value=cfg.val;
             const span=document.createElement('small'); span.textContent=cfg.val;
-            input.oninput=()=>{ span.textContent=input.value; optsObj[key]=Number(input.value); meshGradient.setDistortionStack([currentDistortion]); };
+            // Update immediately on input
+            input.oninput=()=>{ 
+                span.textContent=input.value; 
+                optsObj[key]=Number(input.value); 
+                meshGradient.setDistortionStack([currentDistortion]); 
+            };
             wrap.appendChild(input); wrap.appendChild(span);
         }
         return wrap;
@@ -541,6 +558,9 @@ function initializeUI() {
         const distortions = getDistortions();
         if (distortions && typeof distortions.setStack === 'function') {
             distortions.setStack([currentDistortion]);
+            
+            // Immediately render without regenerating colors
+            meshGradient.render(null, true);
         }
         editModeToggle.checked=false;
         editModeToggle.disabled=true;
