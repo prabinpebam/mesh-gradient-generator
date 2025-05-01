@@ -1,9 +1,72 @@
+/* ----------- GLOBAL VARIABLES ----------- */
+:root {
+    /* Light Theme Variables */
+    --body-bg: #f8f9fa;
+    --card-bg: #ffffff;
+    --toolbar-bg: var(--card-bg);
+    --border-color: #dee2e6;
+    --text-color: #212529;
+    --box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+/* Dark Theme Variables */
+[data-bs-theme="dark"] {
+    --body-bg: #121212;
+    --card-bg: #1e1e1e;
+    --toolbar-bg: var(--card-bg);
+    --border-color: #444;
+    --text-color: #f8f9fa;
+    --box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.25);
+}
+
+/* ----------- BASE STYLES ----------- */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    min-width: 320px; /* Minimum width to support smallest smartphones */
+}
+
+body {
+    background-color: var(--body-bg);
+    color: var(--text-color);
+    min-height: 100vh;
+}
+
+[data-bs-theme="dark"] body {
+    background-image: url('../images/dot-grid-bg-dark-mode.png');
+    background-repeat: repeat;
+}
+
+/* Watermark */
+.watermark {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    font-size: 0.75rem;
+    opacity: 0.5;
+    z-index: 0; /* Behind content but above background */
+    pointer-events: none; /* Clicks pass through */
+    font-family: monospace;
+    color: var(--text-color);
+}
+
+.watermark .author {
+    font-size: 0.65rem;
+    display: block;
+}
+
+/* Dark theme specific watermark styling */
+[data-bs-theme="dark"] .watermark {
+    opacity: 0.4;
+}
+
 /* Custom styles for Mesh Gradient Generator */
 
 body {
-    background-color: #f8f9fa;
-    background-image: url('../images/dot-grid-bg-light-mode.png');
-    background-repeat: repeat;
+    background-color: var(--body-bg);
+    color: var(--text-color);
 }
 
 .canvas-container {
@@ -12,6 +75,11 @@ body {
     text-align: center;
     overflow: hidden;
     border-radius: 20px;      /* keep rounded corner, bg removed */
+    background-color: transparent;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #gradientCanvas {
@@ -40,10 +108,10 @@ body {
 
 /* fixed full‑height right sidebar */
 .sidebar{
-    height:100vh;           /* scroll internally if content too high */
+    height:100%;           /* scroll internally if content too high */
     overflow-y:auto;
     background:transparent;
-    padding:1rem;
+    width:420px;            /* fixed width */
 }
 
 /* Keep card full width of sidebar */
@@ -52,6 +120,9 @@ body {
     height:100%;            /* fill sidebar’s content height */
     display:flex;           /* allow body to flex‑grow */
     flex-direction:column;
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    box-shadow: var(--box-shadow);
 }
 
 /* scrollable body when content exceeds viewport */
@@ -62,10 +133,13 @@ body {
 
 /* left area takes remaining width and centres canvas */
 .main-area{
-    min-height:100vh;
+    height: 100%;
     display:flex;
-    justify-content:center;
+    flex-direction: column;
+    justify-content: flex-start; /* Align content to top */
     align-items:center;
+    position: relative;     /* For toolbar positioning */
+    min-height: calc(100vh - 2rem); /* Account for container padding */
 }
 
 /* .main-area margin already compensates the 420‑px fixed sidebar */
@@ -81,8 +155,8 @@ body {
 
 /* Remove side‑padding of container and negative margins of the row */
 .container-fluid{
-    padding-left:0;
-    padding-right:0;
+    height: 100%; /* Use 100% instead of 100vh to prevent overflow */
+    padding: 1rem; /* Use consistent padding */
 }
 .container-fluid>.row{
     margin-left:0;
@@ -92,6 +166,7 @@ body {
 /* ---------- flex row may wrap ---------- */
 .layout-flex{
     flex-wrap:wrap;         /* sidebar moves underneath when space is tight */
+    height: 100%; /* Use 100% height instead of min-height calc */
 }
 
 /* default desktop – already OK (sidebar 420px, main fills & centres) */
@@ -99,17 +174,17 @@ body {
 /* -------- fixed‑width sidebar for wide viewports -------- */
 .sidebar{
     flex:0 0 420px;      /* fixed basis, no grow / no shrink */
-    height:100vh;
+    height:100%; /* Use 100% instead of 100vh */
     overflow-y:auto;
     background:transparent;
-    padding:1rem;
 }
 
 /* canvas column keeps centring on wide screens */
 .main-area{
-    min-height:100vh;
+    height:100%; /* Use 100% instead of 100vh */
     display:flex;
-    justify-content:center;
+    flex-direction: column;
+    justify-content: flex-start; /* Align content to top */
     align-items:center;
 }
 
@@ -122,13 +197,90 @@ body {
         padding:1rem 0.75rem;
     }
     .main-area{
-        min-height:auto;      /* hug canvas */
+        height: auto; /* auto height on mobile */
         padding:1rem 0.75rem;
         display:block;        /* drop flex‑centering */
     }
     .canvas-container{
         margin:0 auto;        /* keep centred horizontally */
+        margin-top: 0;      /* No margin needed with padding-top on parent */
+    }
+    .toolbar-inner {
+        max-width: 100%;    /* Full width on mobile */
+    }
+    .toolbar {
+        position: static; /* Not sticky, normal flow in document */
+        width: 100%;
+        margin-bottom: 1rem;
     }
 }
 
 /* keep the small‑screen (≤ 991 px) rules identical – nothing else needed */
+
+/* ----------- TOOLBAR ----------- */
+.toolbar {
+    position: sticky; /* Sticky by default for desktop */
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1030; /* Higher than default Bootstrap z-index */
+    padding: 0.75rem 1rem; /* Match sidebar padding */
+    box-shadow: var(--box-shadow);
+    background-color: var(--toolbar-bg);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    box-shadow: var(--box-shadow);
+    border: 1px solid var(--border-color);
+    margin-bottom: 1rem;
+}
+
+.toolbar-inner {
+    width: 100%; /* Use full width of the toolbar, which is now correctly sized */
+}
+
+/* Toolbar inputs - make them smaller */
+.size-input {
+    width: 95px; /* Increased from 80px to 95px to fit 4-digit numbers */
+}
+
+/* ----------- RESPONSIVE LAYOUT ----------- */
+@media (max-width:991.98px){
+    /* Make toolbar full width on mobile */
+    .toolbar {
+        position: static; /* Enforce normal flow in document */
+        width: 100%;
+        padding: 0.75rem; /* Padding should match mobile padding of sidebar */
+    }
+    .sidebar {
+        width: 100%;
+        margin-left: 0 !important;
+    }
+    
+    .main-area {
+        min-height: auto;
+    }
+    
+    /* Toolbar takes full width */
+    .toolbar {
+        width: 100%;
+    }
+}
+
+/* Fixed size color adjustment buttons */
+.color-adjust-btn {
+    width: 32px;      /* Fixed width */
+    min-width: 32px;  /* Prevent Bootstrap from overriding */
+    padding: 0.25rem 0;  /* Reduce vertical padding */
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+}
+
+/* Make the button group fit content */
+.color-adjust-group {
+    width: auto !important;
+    display: inline-flex;
+}

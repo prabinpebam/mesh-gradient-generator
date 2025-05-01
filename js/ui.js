@@ -50,6 +50,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Initial render ---------------------
         meshGradient.generate();          // first render uses default theme
         meshGradient.setColorTheme(colorThemeSelect.value); // ensure synced
+
+        // Make sure we're using the toolbar edit mode toggle
+        document.getElementById('editModeToggle').addEventListener('change', function() {
+            meshGradient.setEditMode(this.checked);
+        });
     }
     
     // Generate button click

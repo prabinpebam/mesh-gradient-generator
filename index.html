@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,60 +12,82 @@
     <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
-    <!-- full width, no gutters -->
-    <div class="container-fluid px-0">
-        <div class="d-flex layout-flex">         <!-- flex row, wraps on small -->
-            <!-- ① Canvas area (fluid) -->
-            <div class="main-area flex-grow-1">
-                <div class="canvas-container p-2 rounded">
+    <!-- Watermark -->
+    <div class="watermark">
+        Mesh Gradient Generator
+        <span class="author">by Prabin Pebam</span>
+    </div>
+    
+    <!-- Container with uniform padding all around -->
+    <div class="container-fluid p-3">
+        <!-- Flex layout for columns with gap matching container padding -->
+        <div class="d-flex layout-flex gap-3">
+            
+            <!-- Column 1 - Fluid, fills available space -->
+            <div class="main-area flex-grow-1 position-relative d-flex flex-column">
+                <!-- Toolbar at top - sticky, not fixed -->
+                <div class="toolbar">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <!-- Canvas Size controls -->
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="form-label mb-0 me-2 fw-medium">Canvas size</label>
+                            <div class="d-flex gap-2">
+                                <!-- Width input -->
+                                <div class="input-group input-group-sm size-input">
+                                    <span class="input-group-text px-2">
+                                        <i class="bi bi-arrows" title="Width"></i>
+                                    </span>
+                                    <input type="number" id="canvasWidth" class="form-control" value="800">
+                                </div>
+                                <!-- Height input -->
+                                <div class="input-group input-group-sm size-input">
+                                    <span class="input-group-text px-2">
+                                        <i class="bi bi-arrows-vertical" title="Height"></i>
+                                    </span>
+                                    <input type="number" id="canvasHeight" class="form-control" value="600">
+                                </div>
+                                <!-- Apply button -->
+                                <button id="resizeCanvas" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Right side controls -->
+                        <div class="d-flex align-items-center gap-3">
+                            <!-- Edit Mode toggle -->
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="editModeToggle">
+                                <label class="form-check-label" for="editModeToggle">
+                                    Edit Mode
+                                </label>
+                            </div>
+                            
+                            <!-- Theme toggle -->
+                            <div class="theme-toggle">
+                                <button id="themeModeToggle" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-moon-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Canvas centered in column -->
+                <div class="canvas-container flex-grow-1 d-flex justify-content-center align-items-center p-2 rounded">
                     <canvas id="gradientCanvas"></canvas>
                 </div>
             </div>
 
-            <!-- ② Fixed‑width sidebar -->
+            <!-- Column 2 - Sidebar with fixed width (no ms-3 as we're using gap-3 on parent) -->
             <div class="sidebar">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
-                        <!-- NEW title -->
-                        <h4 class="text-center mb-4">
-                            Mesh Gradient Generator<br>
-                            <small class="text-muted">by Prabin Pebam</small>
-                        </h4>
-
-                        <!-- Canvas Size -->
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Canvas Size</label>
-                            <div class="row g-2 align-items-end">
-                                <!-- Width -->
-                                <div class="col-4">
-                                    <div class="input-group">
-                                        <span class="input-group-text p-2">
-                                            <i class="bi bi-arrows" title="Width"></i>
-                                        </span>
-                                        <input type="number" id="canvasWidth" class="form-control" value="800">
-                                    </div>
-                                </div>
-                                <!-- Height -->
-                                <div class="col-4">
-                                    <div class="input-group">
-                                        <span class="input-group-text p-2">
-                                            <i class="bi bi-arrows-vertical" title="Height"></i>
-                                        </span>
-                                        <input type="number" id="canvasHeight" class="form-control" value="600">
-                                    </div>
-                                </div>
-                                <!-- Apply button -->
-                                <div class="col-4 d-grid">
-                                    <button id="resizeCanvas" class="btn btn-outline-secondary">
-                                        <i class="bi bi-check-lg"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        <h3 class="mb-4">Parameters</h3>
 
                         <!-- Voronoi Settings -->
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Voronoi Cells</label>
+                            <label class="form-label fw-bold">Voronoi cells</label>
                             <input type="range" class="form-range" id="cellCount" min="2" max="20" value="5">
                             <div class="d-flex justify-content-between">
                                 <small id="minCellCount">2</small>
@@ -76,7 +98,7 @@
                         
                         <!-- Blur Amount -->
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Blur Amount</label>
+                            <label class="form-label fw-bold">Blur amount</label>
                             <input type="range" class="form-range" id="blurAmount" min="0" max="400" value="60">
                             <div class="d-flex justify-content-between">
                                 <small>0</small>
@@ -87,7 +109,7 @@
                         
                         <!-- Color Harmony -->
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Color Harmony</label>
+                            <label class="form-label fw-bold">Color harmony</label>
                             <select id="colorHarmony" class="form-select">
                                 <option value="analogous">Analogous</option>
                                 <option value="complementary">Complementary</option>
@@ -101,7 +123,7 @@
 
                         <!-- Color Theme -->
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Color Theme</label>
+                            <label class="form-label fw-bold">Color theme</label>
                             <select id="colorTheme" class="form-select">
                                 <option value="none" selected>None</option>
                                 <option value="pastel">Pastel</option>
@@ -121,16 +143,16 @@
                         
                         <!-- Color Adjustments -->
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Color Adjustments</label>
+                            <label class="form-label fw-bold">Color adjustments</label>
                             
                             <div class="row align-items-center mb-2">
                                 <div class="col-4">
                                     <label class="col-form-label">Hue</label>
                                 </div>
                                 <div class="col-8">
-                                    <div class="btn-group w-100">
-                                        <button class="btn btn-sm btn-outline-secondary" id="hueDecrease">-</button>
-                                        <button class="btn btn-sm btn-outline-secondary" id="hueIncrease">+</button>
+                                    <div class="btn-group color-adjust-group">
+                                        <button class="btn btn-sm btn-outline-secondary color-adjust-btn" id="hueDecrease">-</button>
+                                        <button class="btn btn-sm btn-outline-secondary color-adjust-btn" id="hueIncrease">+</button>
                                     </div>
                                 </div>
                             </div>
@@ -140,9 +162,9 @@
                                     <label class="col-form-label">Saturation</label>
                                 </div>
                                 <div class="col-8">
-                                    <div class="btn-group w-100">
-                                        <button class="btn btn-sm btn-outline-secondary" id="satDecrease">-</button>
-                                        <button class="btn btn-sm btn-outline-secondary" id="satIncrease">+</button>
+                                    <div class="btn-group color-adjust-group">
+                                        <button class="btn btn-sm btn-outline-secondary color-adjust-btn" id="satDecrease">-</button>
+                                        <button class="btn btn-sm btn-outline-secondary color-adjust-btn" id="satIncrease">+</button>
                                     </div>
                                 </div>
                             </div>
@@ -152,22 +174,14 @@
                                     <label class="col-form-label">Lightness</label>
                                 </div>
                                 <div class="col-8">
-                                    <div class="btn-group w-100">
-                                        <button class="btn btn-sm btn-outline-secondary" id="lightDecrease">-</button>
-                                        <button class="btn btn-sm btn-outline-secondary" id="lightIncrease">+</button>
+                                    <div class="btn-group color-adjust-group">
+                                        <button class="btn btn-sm btn-outline-secondary color-adjust-btn" id="lightDecrease">-</button>
+                                        <button class="btn btn-sm btn-outline-secondary color-adjust-btn" id="lightIncrease">+</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- Edit Mode -->
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" id="editModeToggle">
-                            <label class="form-check-label" for="editModeToggle">
-                                Show Cell Centers and Borders
-                            </label>
-                        </div>
-
                         <!-- Distortion -->
                         <div class="mb-3">
                             <label class="form-label fw-bold">Distortion</label>
@@ -188,7 +202,7 @@
 
                         <!-- Generate Button -->
                         <button id="generateBtn" class="btn btn-success w-100 mb-3">
-                            <i class="bi bi-magic"></i> Generate New Gradient
+                            <i class="bi bi-magic"></i> Generate new gradient
                         </button>
                         <button id="exportPngBtn" class="btn btn-outline-primary">
                             <i class="bi bi-download"></i> Export as PNG
@@ -217,5 +231,6 @@
     <script src="js/distortion/distortionManager.js"></script>
     <script src="js/meshGradient.js"></script>
     <script src="js/ui.js"></script>
+    <script src="js/themeManager.js"></script>
 </body>
 </html>
