@@ -224,9 +224,8 @@ class MeshGradientRenderer {
         
         // Other UI colors
         const cellHighlightColor = isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
-        const innerGlowColor = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)';
         
-        // Draw cell highlight
+        // Draw cell highlight - removed glow/shadow effect
         if (cell && cell.path) {
             ctx.save();
             ctx.strokeStyle = cellHighlightColor;
@@ -234,10 +233,7 @@ class MeshGradientRenderer {
             
             ctx.setLineDash(isLocked ? [] : [5, 3]);
             
-            ctx.shadowColor = innerGlowColor;
-            ctx.shadowBlur = 10;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
+            // Removed shadow/glow properties
             
             ctx.beginPath();
             const path = new Path2D(cell.path);

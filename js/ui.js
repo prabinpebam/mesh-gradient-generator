@@ -134,11 +134,19 @@ function initializeUI() {
         cellCountValue.textContent = count;
         
         // Immediately generate new gradient with new cell count
-        // This ensures real-time updates while dragging the slider
         meshGradient.generate({ 
             cellCount: count,
             keepColors: false  // Force complete regeneration with new cells
         });
+        
+        // Use a short timeout to ensure colors are fully generated before updating swatches
+        setTimeout(() => {
+            // Force update swatches with latest colors from canvas
+            updateSwatches();
+            
+            // Also notify about color change (for other components that might listen)
+            notifyColorChange({ source: 'cell-count-change', cellCount: count });
+        }, 10);
     });
     
     // Blur amount slider change - update immediately on input
