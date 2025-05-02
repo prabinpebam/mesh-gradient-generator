@@ -226,11 +226,11 @@ class MeshGradientRenderer {
         const luminance = this.calculateLuminance(cellColor);
         const isDark = luminance <= 0.5;
         
-        // Step 1: Set pill background colors - base and hover states
+        // Set base pill background colors and hover states
         const pillBackgroundColor = isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)';
         const pillHoverColor = isDark ? 'rgba(255, 255, 255, 1.0)' : 'rgba(0, 0, 0, 1.0)';
         
-        // Step 2: The lock icon should be opposite of pill background
+        // The icon color should contrast with pill background
         const iconColor = isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
         
         // Other UI colors
@@ -256,82 +256,138 @@ class MeshGradientRenderer {
             ctx.restore();
         }
         
-        // Store button positions for hit testing - now including the entire pill
+        // Define three sections of the pill with asymmetric widths
+        const pillWidth = 64; // Total width
+        const colorSectionWidth = 24; // Make color picker section wider
+        const moveSectionWidth = 20; // Middle section
+        const lockSectionWidth = 20; // Right section
+        const pillHeight = 24;
+        const pillX = site[0] - pillWidth / 2;
+        const pillY = site[1] - pillHeight / 2;
+        
+        // Calculate section positions
+        const colorSectionX = pillX;
+        const moveSectionX = pillX + colorSectionWidth;
+        const lockSectionX = moveSectionX + moveSectionWidth;
+        
+        // Store button positions for hit testing - now with three sections
+        const pillControls = {
+            pill: { 
+                x: site[0], 
+                y: site[1], 
+                width: pillWidth, 
+                height: pillHeight,
+                left: pillX,
+                right: pillX + pillWidth,
+                top: pillY,
+                bottom: pillY + pillHeight
+            },
+            colorBtn: { 
+                x: pillX + colorSectionWidth / 2, 
+                y: site[1],
+                left: pillX,
+                right: pillX + colorSectionWidth,
+                top: pillY,
+                bottom: pillY + pillHeight,
+                radius: 8 // Keep original radius for backward compatibility
+            },
+            moveBtn: { 
+                x: moveSectionX + moveSectionWidth / 2, 
+                y: site[1],
+                left: moveSectionX,
+                right: moveSectionX + moveSectionWidth,
+                top: pillY,
+                bottom: pillY + pillHeight
+            },
+            lockBtn: { 
+                x: lockSectionX + lockSectionWidth / 2, 
+                y: site[1],
+                left: lockSectionX,
+                right: lockSectionX + lockSectionWidth,
+                top: pillY,
+                bottom: pillY + pillHeight,
+                radius: 8 // Keep original radius for backward compatibility
+            }
+        };
+        
         if (editMode) {
             if (!this.core.hoverControls.cells) {
                 this.core.hoverControls.cells = {};
             }
-            
-            this.core.hoverControls.cells[cellIndex] = {
-                pill: { 
-                    x: site[0], 
-                    y: site[1], 
-                    width: 48, 
-                    height: 24,
-                    left: site[0] - 24,
-                    right: site[0] + 24,
-                    top: site[1] - 12,
-                    bottom: site[1] + 12
-                },
-                colorBtn: { x: site[0] - 12, y: site[1], radius: 8 },
-                lockBtn: { x: site[0] + 12, y: site[1], radius: 8 }
-            };
+            this.core.hoverControls.cells[cellIndex] = pillControls;
         } else {
             this.core.hoverControls = {
                 cell: cellIndex,
-                pill: { 
-                    x: site[0], 
-                    y: site[1], 
-                    width: 48, 
-                    height: 24,
-                    left: site[0] - 24,
-                    right: site[0] + 24,
-                    top: site[1] - 12,
-                    bottom: site[1] + 12
-                },
-                colorBtn: { x: site[0] - 12, y: site[1], radius: 8 },
-                lockBtn: { x: site[0] + 12, y: site[1], radius: 8 }
+                ...pillControls
             };
         }
         
-        // Check if any part of the pill is being hovered
-        const isPillHovered = hoveredButton && 
-                            (editMode ? hoveredCellIndex === cellIndex : true);
+        // Check which section is being hovered (if any)
+        let isColorBtnHovered = false;
+        let isMoveBtnHovered = false;
+        let isLockBtnHovered = false;
         
-        // Draw pill background with hover state
-        ctx.fillStyle = isPillHovered ? pillHoverColor : pillBackgroundColor;
+        if (hoveredButton && (editMode ? hoveredCellIndex === cellIndex : true)) {
+            isColorBtnHovered = (hoveredButton === 'colorBtn');
+            isMoveBtnHovered = (hoveredButton === 'moveBtn');
+            isLockBtnHovered = (hoveredButton === 'lockBtn');
+        }
+        
+        // Draw the pill background with three sections (each with independent hover state)
+        
+        // Color section (left)
+        ctx.fillStyle = isColorBtnHovered ? pillHoverColor : pillBackgroundColor;
         ctx.beginPath();
-        this.roundedRect(ctx, site[0] - 24, site[1] - 12, 48, 24, 12);
+        this.roundedRectSection(ctx, colorSectionX, pillY, colorSectionWidth, pillHeight, 12, true, false);
         ctx.fill();
         
-        // Draw divider
-        ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
-        ctx.fillRect(site[0], site[1] - 10, 1, 20);
+        // Move section (middle)
+        ctx.fillStyle = isMoveBtnHovered ? pillHoverColor : pillBackgroundColor;
+        ctx.beginPath();
+        this.roundedRectSection(ctx, moveSectionX, pillY, moveSectionWidth, pillHeight, 0, false, false);
+        ctx.fill();
         
-        // Draw color picker - now filling the entire circle with cell color
+        // Lock section (right)
+        ctx.fillStyle = isLockBtnHovered ? pillHoverColor : pillBackgroundColor;
+        ctx.beginPath();
+        this.roundedRectSection(ctx, lockSectionX, pillY, lockSectionWidth, pillHeight, 12, false, true);
+        ctx.fill();
+        
+        // Draw dividers between sections
+        ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
+        ctx.fillRect(moveSectionX, pillY + 2, 1, pillHeight - 4);
+        ctx.fillRect(lockSectionX, pillY + 2, 1, pillHeight - 4);
+        
+        // Draw color picker circle
         ctx.beginPath();
         ctx.fillStyle = cellColor.hex;
-        ctx.arc(site[0] - 12, site[1], 8, 0, Math.PI * 2);
+        ctx.arc(pillControls.colorBtn.x, pillControls.colorBtn.y, 8, 0, Math.PI * 2);
         ctx.fill();
         
         // Add a thin outline to the color circle for better visibility
         ctx.beginPath();
         ctx.strokeStyle = cellHighlightColor;
         ctx.lineWidth = 1;
-        ctx.arc(site[0] - 12, site[1], 8, 0, Math.PI * 2);
+        ctx.arc(pillControls.colorBtn.x, pillControls.colorBtn.y, 8, 0, Math.PI * 2);
         ctx.stroke();
         
-        // Draw lock icon directly without a button background
+        // Draw move icon
         ctx.fillStyle = iconColor;
-        ctx.font = '14px bootstrap-icons'; // Slightly larger for better visibility
+        ctx.font = '14px bootstrap-icons';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.fillText('\uF14E', pillControls.moveBtn.x, pillControls.moveBtn.y); // Move icon
         
+        // Draw lock icon
         const lockIcon = isLocked ? '\uF47A' : '\uF5FF'; // bootstrap-icons: lock-fill vs unlock-fill
-        ctx.fillText(lockIcon, site[0] + 12, site[1]);
+        ctx.fillText(lockIcon, pillControls.lockBtn.x, pillControls.lockBtn.y);
         
-        // Set cursor to pointer
-        this.core.canvas.style.cursor = 'pointer';
+        // Set cursor based on hovered section
+        if (isMoveBtnHovered) {
+            this.core.canvas.style.cursor = 'move';
+        } else {
+            this.core.canvas.style.cursor = 'pointer';
+        }
     }
     
     /**
@@ -359,17 +415,23 @@ class MeshGradientRenderer {
                 for (const cellIndex in hoverControls.cells) {
                     const cellControls = hoverControls.cells[cellIndex];
                     
-                    // First check if point is within the pill - primary hit detection
-                    const pill = cellControls.pill;
-                    if (x >= pill.left && x <= pill.right && y >= pill.top && y <= pill.bottom) {
-                        // If inside pill, check which side (left = color, right = lock)
-                        const middleX = pill.x;
-                        if (x < middleX) {
-                            result.button = 'colorBtn';
-                        } else {
-                            result.button = 'lockBtn';
-                        }
-                        
+                    // Check which section of the pill is being hovered
+                    if (this.isPointInSection(x, y, 'colorBtn', cellControls)) {
+                        result.button = 'colorBtn';
+                        result.cellIndex = parseInt(cellIndex);
+                        result.cursor = 'pointer';
+                        result.changed = true;
+                        result.render = true;
+                        return result;
+                    } else if (this.isPointInSection(x, y, 'moveBtn', cellControls)) {
+                        result.button = 'moveBtn';
+                        result.cellIndex = parseInt(cellIndex);
+                        result.cursor = 'move';
+                        result.changed = true;
+                        result.render = true;
+                        return result;
+                    } else if (this.isPointInSection(x, y, 'lockBtn', cellControls)) {
+                        result.button = 'lockBtn';
                         result.cellIndex = parseInt(cellIndex);
                         result.cursor = 'pointer';
                         result.changed = true;
@@ -379,7 +441,7 @@ class MeshGradientRenderer {
                 }
             }
             
-            // If we got here, not hovering over any pill
+            // If we got here, not hovering over any pill section
             if (previousButton) {
                 result.changed = true;
                 result.render = true;
@@ -391,24 +453,28 @@ class MeshGradientRenderer {
                 return result;
             }
             
-            // Check if point is within the pill
-            const pill = hoverControls.pill;
-            if (pill && x >= pill.left && x <= pill.right && y >= pill.top && y <= pill.bottom) {
-                // Determine which side of the pill the hover is on
-                const middleX = pill.x;
-                if (x < middleX) {
-                    result.button = 'colorBtn';
-                } else {
-                    result.button = 'lockBtn';
-                }
-                
+            // Check which section of the pill is being hovered
+            if (this.isPointInSection(x, y, 'colorBtn', hoverControls)) {
+                result.button = 'colorBtn';
                 result.cursor = 'pointer';
-                result.changed = this.core.hoveredButton !== result.button;
+                result.changed = this.core.hoveredButton !== 'colorBtn';
+                result.render = result.changed;
+                return result;
+            } else if (this.isPointInSection(x, y, 'moveBtn', hoverControls)) {
+                result.button = 'moveBtn';
+                result.cursor = 'move';
+                result.changed = this.core.hoveredButton !== 'moveBtn';
+                result.render = result.changed;
+                return result;
+            } else if (this.isPointInSection(x, y, 'lockBtn', hoverControls)) {
+                result.button = 'lockBtn';
+                result.cursor = 'pointer';
+                result.changed = this.core.hoveredButton !== 'lockBtn';
                 result.render = result.changed;
                 return result;
             }
             
-            // If we got here, not hovering any button
+            // If we got here, not hovering any section
             if (this.core.hoveredButton) {
                 result.changed = true;
                 result.render = true;
@@ -416,6 +482,76 @@ class MeshGradientRenderer {
         }
         
         return result;
+    }
+    
+    /**
+     * Check if point is within a specific section of the pill
+     * @param {Number} x - X coordinate
+     * @param {Number} y - Y coordinate
+     * @param {String} section - Section name (colorBtn, moveBtn, lockBtn)
+     * @param {Object} controls - Hover controls object
+     * @returns {Boolean} - Whether point is in the section
+     */
+    isPointInSection(x, y, section, controls) {
+        if (!controls || !controls[section]) return false;
+        
+        const sec = controls[section];
+        return x >= sec.left && x <= sec.right && y >= sec.top && y <= sec.bottom;
+    }
+    
+    /**
+     * Draw a rounded rectangle section (for pill UI)
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Number} x - X coordinate
+     * @param {Number} y - Y coordinate
+     * @param {Number} width - Rectangle width
+     * @param {Number} height - Rectangle height
+     * @param {Number} radius - Corner radius
+     * @param {Boolean} roundLeft - Round left corners
+     * @param {Boolean} roundRight - Round right corners
+     */
+    roundedRectSection(ctx, x, y, width, height, radius, roundLeft, roundRight) {
+        ctx.beginPath();
+        
+        // Top edge
+        if (roundLeft) {
+            ctx.moveTo(x + radius, y);
+        } else {
+            ctx.moveTo(x, y);
+        }
+        
+        if (roundRight) {
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        } else {
+            ctx.lineTo(x + width, y);
+        }
+        
+        // Right edge
+        if (roundRight) {
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        } else {
+            ctx.lineTo(x + width, y + height);
+        }
+        
+        // Bottom edge
+        if (roundLeft) {
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        } else {
+            ctx.lineTo(x, y + height);
+        }
+        
+        // Left edge
+        if (roundLeft) {
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+        
+        ctx.closePath();
     }
     
     /**
@@ -429,12 +565,23 @@ class MeshGradientRenderer {
     isPointInControl(x, y, control, hoverControls) {
         if (!hoverControls) return false;
         
+        // First try section-based detection
+        if (this.isPointInSection(x, y, control, hoverControls)) {
+            return true;
+        }
+        
+        // Fallback to original radius-based detection for backward compatibility
         const btn = hoverControls[control];
         if (!btn) return false;
         
-        const dx = x - btn.x;
-        const dy = y - btn.y;
-        return (dx * dx + dy * dy) <= (btn.radius * btn.radius);
+        // Only use radius if it exists
+        if (btn.radius) {
+            const dx = x - btn.x;
+            const dy = y - btn.y;
+            return (dx * dx + dy * dy) <= (btn.radius * btn.radius);
+        }
+        
+        return false;
     }
     
     /**
