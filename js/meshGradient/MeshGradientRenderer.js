@@ -222,15 +222,25 @@ class MeshGradientRenderer {
         const cellColor = this.core.getCellColor(cellIndex);
         const isLocked = this.core.isCellColorLocked(cellIndex);
         
-        // Calculate contrasting colors
+        // Calculate contrasting colors based on cell color luminance
         const luminance = this.calculateLuminance(cellColor);
-        const contrastColor = luminance > 0.5 ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
-        const innerGlowColor = luminance > 0.5 ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.6)';
+        const isDark = luminance <= 0.5;
+        
+        // Step 1: Set pill background colors - base and hover states
+        const pillBackgroundColor = isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)';
+        const pillHoverColor = isDark ? 'rgba(255, 255, 255, 1.0)' : 'rgba(0, 0, 0, 1.0)';
+        
+        // Step 2: The lock icon should be opposite of pill background
+        const iconColor = isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
+        
+        // Other UI colors
+        const cellHighlightColor = isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+        const innerGlowColor = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)';
         
         // Draw cell highlight
         if (cell && cell.path) {
             ctx.save();
-            ctx.strokeStyle = contrastColor;
+            ctx.strokeStyle = cellHighlightColor;
             ctx.lineWidth = 3;
             
             ctx.setLineDash(isLocked ? [] : [5, 3]);
@@ -246,75 +256,74 @@ class MeshGradientRenderer {
             ctx.restore();
         }
         
-        // Store button positions for hit testing
+        // Store button positions for hit testing - now including the entire pill
         if (editMode) {
             if (!this.core.hoverControls.cells) {
                 this.core.hoverControls.cells = {};
             }
             
             this.core.hoverControls.cells[cellIndex] = {
+                pill: { 
+                    x: site[0], 
+                    y: site[1], 
+                    width: 48, 
+                    height: 24,
+                    left: site[0] - 24,
+                    right: site[0] + 24,
+                    top: site[1] - 12,
+                    bottom: site[1] + 12
+                },
                 colorBtn: { x: site[0] - 12, y: site[1], radius: 8 },
                 lockBtn: { x: site[0] + 12, y: site[1], radius: 8 }
             };
         } else {
             this.core.hoverControls = {
                 cell: cellIndex,
+                pill: { 
+                    x: site[0], 
+                    y: site[1], 
+                    width: 48, 
+                    height: 24,
+                    left: site[0] - 24,
+                    right: site[0] + 24,
+                    top: site[1] - 12,
+                    bottom: site[1] + 12
+                },
                 colorBtn: { x: site[0] - 12, y: site[1], radius: 8 },
                 lockBtn: { x: site[0] + 12, y: site[1], radius: 8 }
             };
         }
         
-        // Draw pill background
-        ctx.fillStyle = 'rgba(128, 128, 128, 0.7)';
+        // Check if any part of the pill is being hovered
+        const isPillHovered = hoveredButton && 
+                            (editMode ? hoveredCellIndex === cellIndex : true);
+        
+        // Draw pill background with hover state
+        ctx.fillStyle = isPillHovered ? pillHoverColor : pillBackgroundColor;
         ctx.beginPath();
         this.roundedRect(ctx, site[0] - 24, site[1] - 12, 48, 24, 12);
         ctx.fill();
         
         // Draw divider
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
         ctx.fillRect(site[0], site[1] - 10, 1, 20);
         
-        // Check if color button is hovered
-        const isColorBtnHovered = hoveredButton === 'colorBtn' && 
-                                 (editMode ? hoveredCellIndex === cellIndex : true);
-        
-        // Draw color picker button
+        // Draw color picker - now filling the entire circle with cell color
         ctx.beginPath();
-        ctx.fillStyle = isColorBtnHovered ? 'rgba(160, 160, 160, 0.9)' : 'rgba(128, 128, 128, 0.7)';
-        ctx.arc(site[0] - 12, site[1], 8, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.beginPath();
-        ctx.strokeStyle = contrastColor;
-        ctx.lineWidth = 1;
-        ctx.arc(site[0] - 12, site[1], 8, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Draw inner circle with cell color
         ctx.fillStyle = cellColor.hex;
-        ctx.beginPath();
-        ctx.arc(site[0] - 12, site[1], 5, 0, Math.PI * 2);
+        ctx.arc(site[0] - 12, site[1], 8, 0, Math.PI * 2);
         ctx.fill();
         
-        // Check if lock button is hovered
-        const isLockBtnHovered = hoveredButton === 'lockBtn' && 
-                               (editMode ? hoveredCellIndex === cellIndex : true);
-        
-        // Draw lock button
+        // Add a thin outline to the color circle for better visibility
         ctx.beginPath();
-        ctx.fillStyle = isLockBtnHovered ? 'rgba(160, 160, 160, 0.9)' : 'rgba(128, 128, 128, 0.7)';
-        ctx.arc(site[0] + 12, site[1], 8, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.beginPath();
-        ctx.strokeStyle = contrastColor;
+        ctx.strokeStyle = cellHighlightColor;
         ctx.lineWidth = 1;
-        ctx.arc(site[0] + 12, site[1], 8, 0, Math.PI * 2);
+        ctx.arc(site[0] - 12, site[1], 8, 0, Math.PI * 2);
         ctx.stroke();
         
-        // Draw lock icon
-        ctx.fillStyle = contrastColor;
-        ctx.font = '11px bootstrap-icons';
+        // Draw lock icon directly without a button background
+        ctx.fillStyle = iconColor;
+        ctx.font = '14px bootstrap-icons'; // Slightly larger for better visibility
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
@@ -350,25 +359,17 @@ class MeshGradientRenderer {
                 for (const cellIndex in hoverControls.cells) {
                     const cellControls = hoverControls.cells[cellIndex];
                     
-                    // Check color button
-                    const colorBtn = cellControls.colorBtn;
-                    const dx1 = x - colorBtn.x;
-                    const dy1 = y - colorBtn.y;
-                    if ((dx1 * dx1 + dy1 * dy1) <= (colorBtn.radius * colorBtn.radius)) {
-                        result.button = 'colorBtn';
-                        result.cellIndex = parseInt(cellIndex);
-                        result.cursor = 'pointer';
-                        result.changed = true;
-                        result.render = true;
-                        return result;
-                    }
-                    
-                    // Check lock button
-                    const lockBtn = cellControls.lockBtn;
-                    const dx2 = x - lockBtn.x;
-                    const dy2 = y - lockBtn.y;
-                    if ((dx2 * dx2 + dy2 * dy2) <= (lockBtn.radius * lockBtn.radius)) {
-                        result.button = 'lockBtn';
+                    // First check if point is within the pill - primary hit detection
+                    const pill = cellControls.pill;
+                    if (x >= pill.left && x <= pill.right && y >= pill.top && y <= pill.bottom) {
+                        // If inside pill, check which side (left = color, right = lock)
+                        const middleX = pill.x;
+                        if (x < middleX) {
+                            result.button = 'colorBtn';
+                        } else {
+                            result.button = 'lockBtn';
+                        }
+                        
                         result.cellIndex = parseInt(cellIndex);
                         result.cursor = 'pointer';
                         result.changed = true;
@@ -378,8 +379,7 @@ class MeshGradientRenderer {
                 }
             }
             
-            // If we got here, not hovering over any button
-            // Only trigger change if we were previously hovering a button
+            // If we got here, not hovering over any pill
             if (previousButton) {
                 result.changed = true;
                 result.render = true;
@@ -391,20 +391,19 @@ class MeshGradientRenderer {
                 return result;
             }
             
-            // Check if point is in color button
-            if (this.isPointInControl(x, y, 'colorBtn', hoverControls)) {
-                result.button = 'colorBtn';
+            // Check if point is within the pill
+            const pill = hoverControls.pill;
+            if (pill && x >= pill.left && x <= pill.right && y >= pill.top && y <= pill.bottom) {
+                // Determine which side of the pill the hover is on
+                const middleX = pill.x;
+                if (x < middleX) {
+                    result.button = 'colorBtn';
+                } else {
+                    result.button = 'lockBtn';
+                }
+                
                 result.cursor = 'pointer';
-                result.changed = this.core.hoveredButton !== 'colorBtn';
-                result.render = result.changed;
-                return result;
-            } 
-            
-            // Check if point is in lock button
-            if (this.isPointInControl(x, y, 'lockBtn', hoverControls)) {
-                result.button = 'lockBtn';
-                result.cursor = 'pointer';
-                result.changed = this.core.hoveredButton !== 'lockBtn';
+                result.changed = this.core.hoveredButton !== result.button;
                 result.render = result.changed;
                 return result;
             }

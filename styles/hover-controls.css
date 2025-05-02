@@ -1,0 +1,52 @@
+/* Hover controls container */
+.mesh-hover-controls {
+  position: absolute;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* Control pill background */
+.hover-control-pill {
+  background-color: rgba(255, 255, 255, 0.3); /* White with 30% opacity */
+  border: 2px solid #fff; /* Default white border */
+  border-radius: 20px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Dark theme support */
+[data-bs-theme="dark"] .hover-control-pill {
+  background-color: rgba(0, 0, 0, 0.3); /* Black with 30% opacity */
+  border-color: #000; /* Default black border */
+}
+
+/* Control buttons */
+.hover-control-button {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  pointer-events: auto;
+}
+
+/* Color picker button specific */
+.color-picker-button {
+  background-color: currentColor; /* Uses the cell's color */
+}
+
+/* Lock button specific */
+.lock-button {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Hover states */
+.hover-control-button:hover {
+  transform: scale(1.1);
+}
