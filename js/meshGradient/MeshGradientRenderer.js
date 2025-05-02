@@ -159,9 +159,8 @@ class MeshGradientRenderer {
                 }
             });
             
-            // In edit mode, also draw cell borders and sites
+            // In edit mode, just draw cell borders (removed sites drawing)
             this.drawCellBorders(cells);
-            this.drawSites(sites);
         }
         else {
             // Reset when not hovering or in edit mode
@@ -189,22 +188,12 @@ class MeshGradientRenderer {
     }
     
     /**
-     * Draw Voronoi sites (cell centers)
+     * Draw Voronoi sites (cell centers) - keeping the method but making it empty
+     * This method is now maintained for API compatibility but doesn't draw anything
      * @param {Array} sites - Array of site coordinates
      */
     drawSites(sites) {
-        const ctx = this.core.ctx;
-        
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.lineWidth = 1;
-        
-        sites.forEach(site => {
-            ctx.beginPath();
-            ctx.arc(site[0], site[1], 5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        });
+        // Empty method - no longer drawing site circles in edit mode
     }
     
     /**
