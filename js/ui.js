@@ -628,57 +628,9 @@ function generateRandomColor() {
   return color;
 }
 
-/**
- * Adds five random color swatches to the swatches container
- */
-function addRandomColorSwatches() {
-  const swatchContainer = document.getElementById('colorSwatches');
-  if (!swatchContainer) return;
-  
-  // Clear existing swatches
-  swatchContainer.innerHTML = '';
-  
-  // Add 5 random color swatches
-  for (let i = 0; i < 5; i++) {
-    const color = generateRandomColor();
-    const swatch = document.createElement('div');
-    swatch.className = 'random-swatch';
-    swatch.style.width = '40px';
-    swatch.style.height = '40px';
-    swatch.style.backgroundColor = color;
-    swatch.style.border = '1px solid #ccc';
-    swatch.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-    swatch.style.borderRadius = '4px';
-    swatch.style.cursor = 'pointer';
-    swatch.title = 'Click to use this color';
-    
-    // Add click event to use this color in the gradient
-    swatch.addEventListener('click', () => {
-      if (window.meshGradient) {
-        // If in edit mode and a cell is selected, apply to that cell
-        if (document.getElementById('editModeToggle').checked && 
-            meshGradient.hoverCellIndex >= 0) {
-          meshGradient.setCellColor(meshGradient.hoverCellIndex, color);
-        } else {
-          // Otherwise use as base color for new gradient
-          if (typeof meshGradient.setBaseColor === 'function') {
-            meshGradient.setBaseColor(color);
-            meshGradient.generate();
-          }
-        }
-      }
-    });
-    
-    swatchContainer.appendChild(swatch);
-  }
-}
-
 // Update the window.addEventListener('load') event to call our new function
 window.addEventListener('load', () => {
-  // Add random color swatches
-  addRandomColorSwatches();
-  
-  // Initial swatch update
+  // Initial swatch update - only need this now
   setTimeout(updateSwatches, 500);
   
   // Add event listener to the "Generate new gradient" button to update swatches
@@ -704,189 +656,6 @@ window.addEventListener('load', () => {
   document.getElementById('colorTheme')?.addEventListener('change', () => setTimeout(updateSwatches, 100));
   document.getElementById('colorHarmony')?.addEventListener('change', () => setTimeout(updateSwatches, 100));
 });
-
-/**
- * Function to create and dispatch a custom event for color changes
- * @param {Object} details - Additional information about the color change
- */
-function notifyColorChange(details = {}) {
-  console.log('Canvas colors updated:', details);
-  
-  // Create and dispatch a custom event
-  const event = new CustomEvent('meshColorsChanged', { 
-    detail: {
-      timestamp: new Date().toISOString(),
-      source: details.source || 'unknown',
-      ...details
-    }
-  });
-  document.dispatchEvent(event);
-}
-
-/**
- * Log all current cell colors to the console
- * @param {string} source - The source of the color change
- */
-function logAllCellColors(source = 'unknown') {
-  console.log(`Cell colors updated from: ${source}`);
-  
-  // Ensure meshGradient exists
-  if (!window.meshGradient) {
-    console.log("meshGradient not available yet - initialization in progress");
-    return;
-  }
-  
-  try {
-    // Use the new unified method for getting colors
-    if (typeof meshGradient.getAllColors === 'function') {
-      const allColors = meshGradient.getAllColors();
-      console.log(`Found ${allColors.length} colors in gradient:`, allColors);
-      
-      // Also log the cell count for comparison
-      const cellCount = typeof meshGradient.getCellCount === 'function' ? 
-          meshGradient.getCellCount() : 'unknown';
-      console.log(`Current cell count: ${cellCount}`);
-      return;
-    }
-    
-    // Use the new unified method for getting colors if available
-    if (typeof window.getMeshGradientColors === 'function') {
-      const allColors = window.getMeshGradientColors();
-      console.log(`Found ${allColors.length} colors using getMeshGradientColors():`, allColors);
-      return;
-    }
-    
-    // Use the class method if available
-    if (typeof meshGradient.getAllColors === 'function') {
-      const allColors = meshGradient.getAllColors();
-      console.log(`Found ${allColors.length} colors using getAllColors():`, allColors);
-      return;
-    }
-    
-    // Fallback to the original implementation
-    // Safely log keys with null check
-    if (meshGradient) {
-      console.log("MeshGradient structure keys:", Object.keys(meshGradient));
-    }
-    
-    // Directly check for data in known possible locations
-    let cells = [];
-    
-    // Try to get cells from various possible locations in the object structure
-    if (meshGradient.data && meshGradient.data.cells) {
-      console.log("Found cells in meshGradient.data.cells", meshGradient.data.cells.length);
-      cells = meshGradient.data.cells;
-    } else if (meshGradient.cells) {
-      console.log("Found cells in meshGradient.cells", meshGradient.cells.length);
-      cells = meshGradient.cells;
-    } else if (meshGradient.renderer && meshGradient.renderer.cells) {
-      console.log("Found cells in meshGradient.renderer.cells", meshGradient.renderer.cells.length);
-      cells = meshGradient.renderer.cells;
-    } else if (meshGradient.data && meshGradient.data.voronoi && meshGradient.data.voronoi.cells) {
-      console.log("Found cells in meshGradient.data.voronoi.cells", meshGradient.data.voronoi.cells.length);
-      cells = meshGradient.data.voronoi.cells;
-    } else if (meshGradient.voronoi && meshGradient.voronoi.cells) {
-      console.log("Found cells in meshGradient.voronoi.cells", meshGradient.voronoi.cells.length);
-      cells = meshGradient.voronoi.cells;
-    }
-    
-    // If we found cells, process them
-    if (cells.length > 0) {
-      const cellColors = [];
-      
-      for (let i = 0; i < cells.length; i++) {
-        try {
-          // Try the standard getter first
-          let cellColor;
-          if (typeof meshGradient.getCellColor === 'function') {
-            cellColor = meshGradient.getCellColor(i);
-          } else if (cells[i] && cells[i].color) {
-            // Direct access if color is a property of the cell
-            cellColor = cells[i].color;
-          }
-          
-          if (cellColor) {
-            cellColors.push({
-              cellIndex: i,
-              color: cellColor.hex || cellColor,
-              hsl: cellColor.h !== undefined ? 
-                `h:${Math.round(cellColor.h || 0)}, s:${Math.round(cellColor.s || 0)}%, l:${Math.round(cellColor.l || 0)}%` : 
-                'N/A'
-            });
-          }
-        } catch (err) {
-          console.warn(`Error getting color for cell ${i}:`, err);
-        }
-      }
-      
-      console.log(`Canvas contains ${cellColors.length} cells with colors:`, cellColors);
-    } else {
-      // If there are no cells found in any of the expected locations, try more aggressive inspection
-      console.log("No cells found in standard locations. Checking deeper...");
-      
-      // Directly inspect the meshGradient object for color properties
-      let colorProperties = [];
-      
-      // Check for color arrays directly on meshGradient
-      if (meshGradient.colors && Array.isArray(meshGradient.colors)) {
-        console.log("Found meshGradient.colors:", meshGradient.colors);
-        colorProperties.push({
-          source: "meshGradient.colors",
-          colors: meshGradient.colors.map(c => typeof c === 'string' ? c : (c && c.hex) || c)
-        });
-      }
-      
-      if (meshGradient.currentColors && Array.isArray(meshGradient.currentColors)) {
-        console.log("Found meshGradient.currentColors:", meshGradient.currentColors);
-        colorProperties.push({
-          source: "meshGradient.currentColors",
-          colors: meshGradient.currentColors.map(c => typeof c === 'string' ? c : (c && c.hex) || c)
-        });
-      }
-      
-      // Check in data object
-      if (meshGradient.data) {
-        if (meshGradient.data.colors && Array.isArray(meshGradient.data.colors)) {
-          console.log("Found meshGradient.data.colors:", meshGradient.data.colors);
-          colorProperties.push({
-            source: "meshGradient.data.colors",
-            colors: meshGradient.data.colors.map(c => typeof c === 'string' ? c : (c && c.hex) || c)
-          });
-        }
-        
-        if (meshGradient.data.colorPalette) {
-          console.log("Found meshGradient.data.colorPalette:", meshGradient.data.colorPalette);
-          
-          // Extract colors from the colorPalette object if it has lastGeneratedColors
-          if (meshGradient.data.colorPalette.lastGeneratedColors && 
-              Array.isArray(meshGradient.data.colorPalette.lastGeneratedColors)) {
-            colorProperties.push({
-              source: "meshGradient.data.colorPalette.lastGeneratedColors",
-              colors: meshGradient.data.colorPalette.lastGeneratedColors.map(c => 
-                typeof c === 'string' ? c : (c && c.hex) || c)
-            });
-          } else {
-            // Otherwise just log the colorPalette as an object
-            colorProperties.push({
-              source: "meshGradient.data.colorPalette",
-              colors: Array.isArray(meshGradient.data.colorPalette) ? 
-                meshGradient.data.colorPalette.map(c => typeof c === 'string' ? c : (c && c.hex) || c) :
-                [meshGradient.data.colorPalette]
-            });
-          }
-        }
-      }
-      
-      if (colorProperties.length > 0) {
-        console.log("Found color collections:", colorProperties);
-      } else {
-        console.log("No cells available yet in the gradient");
-      }
-    }
-  } catch (err) {
-    console.error("Error logging cell colors:", err);
-  }
-}
 
 /**
  * Update the color swatches based on the current colors in the gradient
@@ -1069,37 +838,22 @@ function updateSwatches() {
         uniqueColors.push('#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6');
       }
       
-      // Clear existing swatches
-      swatchContainer.innerHTML = '';
-      
-      // Create flex wrap container for all swatches
+      // Create a new wrapper element off-DOM to avoid reflows during construction
       const swatchesWrapper = document.createElement('div');
-      swatchesWrapper.style.display = 'flex';
-      swatchesWrapper.style.flexWrap = 'wrap';
-      swatchesWrapper.style.gap = '5px';
-      swatchesWrapper.style.justifyContent = 'center';
-      swatchesWrapper.style.maxHeight = '200px';
-      swatchesWrapper.style.overflowY = 'auto';
-      swatchesWrapper.style.padding = '5px';
+      swatchesWrapper.className = 'swatches-wrapper';
       
       // Create swatches for ALL unique colors
       uniqueColors.forEach(color => {
         const swatch = document.createElement('div');
         swatch.className = 'color-swatch';
-        swatch.style.width = '25px';
-        swatch.style.height = '25px';
-        swatch.style.backgroundColor = color;
-        swatch.style.border = '1px solid #ccc';
-        swatch.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-        swatch.style.borderRadius = '4px';
-        swatch.style.cursor = 'pointer';
+        swatch.style.backgroundColor = color; // Keep this inline - it's dynamic
         swatch.title = color;
         
         // Add click event to use this color
         swatch.addEventListener('click', () => {
           if (window.meshGradient) {
             // If in edit mode and a cell is selected, apply to that cell
-            if (document.getElementById('editModeToggle').checked && 
+            if (document.getElementById('editModeToggle')?.checked && 
                 meshGradient.hoverCellIndex >= 0) {
               meshGradient.setCellColor(meshGradient.hoverCellIndex, color);
             } else {
@@ -1115,13 +869,198 @@ function updateSwatches() {
         swatchesWrapper.appendChild(swatch);
       });
       
-      // Add the wrapper to the main container
+      // Replace content in one operation to avoid multiple reflows
+      swatchContainer.innerHTML = '';
       swatchContainer.appendChild(swatchesWrapper);
+      
     } catch (err) {
       console.warn("Error getting colors for swatches:", err);
     }
   } catch (outerErr) {
     console.error("Critical error in updateSwatches:", outerErr);
+  }
+}
+
+/**
+ * Function to create and dispatch a custom event for color changes
+ * @param {Object} details - Additional information about the color change
+ */
+function notifyColorChange(details = {}) {
+  console.log('Canvas colors updated:', details);
+  
+  // Create and dispatch a custom event
+  const event = new CustomEvent('meshColorsChanged', { 
+    detail: {
+      timestamp: new Date().toISOString(),
+      source: details.source || 'unknown',
+      ...details
+    }
+  });
+  document.dispatchEvent(event);
+}
+
+/**
+ * Log all current cell colors to the console
+ * @param {string} source - The source of the color change
+ */
+function logAllCellColors(source = 'unknown') {
+  console.log(`Cell colors updated from: ${source}`);
+  
+  // Ensure meshGradient exists
+  if (!window.meshGradient) {
+    console.log("meshGradient not available yet - initialization in progress");
+    return;
+  }
+  
+  try {
+    // Use the new unified method for getting colors
+    if (typeof meshGradient.getAllColors === 'function') {
+      const allColors = meshGradient.getAllColors();
+      console.log(`Found ${allColors.length} colors in gradient:`, allColors);
+      
+      // Also log the cell count for comparison
+      const cellCount = typeof meshGradient.getCellCount === 'function' ? 
+          meshGradient.getCellCount() : 'unknown';
+      console.log(`Current cell count: ${cellCount}`);
+      return;
+    }
+    
+    // Use the new unified method for getting colors if available
+    if (typeof window.getMeshGradientColors === 'function') {
+      const allColors = window.getMeshGradientColors();
+      console.log(`Found ${allColors.length} colors using getMeshGradientColors():`, allColors);
+      return;
+    }
+    
+    // Use the class method if available
+    if (typeof meshGradient.getAllColors === 'function') {
+      const allColors = meshGradient.getAllColors();
+      console.log(`Found ${allColors.length} colors using getAllColors():`, allColors);
+      return;
+    }
+    
+    // Fallback to the original implementation
+    // Safely log keys with null check
+    if (meshGradient) {
+      console.log("MeshGradient structure keys:", Object.keys(meshGradient));
+    }
+    
+    // Directly check for data in known possible locations
+    let cells = [];
+    
+    // Try to get cells from various possible locations in the object structure
+    if (meshGradient.data && meshGradient.data.cells) {
+      console.log("Found cells in meshGradient.data.cells", meshGradient.data.cells.length);
+      cells = meshGradient.data.cells;
+    } else if (meshGradient.cells) {
+      console.log("Found cells in meshGradient.cells", meshGradient.cells.length);
+      cells = meshGradient.cells;
+    } else if (meshGradient.renderer && meshGradient.renderer.cells) {
+      console.log("Found cells in meshGradient.renderer.cells", meshGradient.renderer.cells.length);
+      cells = meshGradient.renderer.cells;
+    } else if (meshGradient.data && meshGradient.data.voronoi && meshGradient.data.voronoi.cells) {
+      console.log("Found cells in meshGradient.data.voronoi.cells", meshGradient.data.voronoi.cells.length);
+      cells = meshGradient.data.voronoi.cells;
+    } else if (meshGradient.voronoi && meshGradient.voronoi.cells) {
+      console.log("Found cells in meshGradient.voronoi.cells", meshGradient.voronoi.cells.length);
+      cells = meshGradient.voronoi.cells;
+    }
+    
+    // If we found cells, process them
+    if (cells.length > 0) {
+      const cellColors = [];
+      
+      for (let i = 0; i < cells.length; i++) {
+        try {
+          // Try the standard getter first
+          let cellColor;
+          if (typeof meshGradient.getCellColor === 'function') {
+            cellColor = meshGradient.getCellColor(i);
+          } else if (cells[i] && cells[i].color) {
+            // Direct access if color is a property of the cell
+            cellColor = cells[i].color;
+          }
+          
+          if (cellColor) {
+            cellColors.push({
+              cellIndex: i,
+              color: cellColor.hex || cellColor,
+              hsl: cellColor.h !== undefined ? 
+                `h:${Math.round(cellColor.h || 0)}, s:${Math.round(cellColor.s || 0)}%, l:${Math.round(cellColor.l || 0)}%` : 
+                'N/A'
+            });
+          }
+        } catch (err) {
+          console.warn(`Error getting color for cell ${i}:`, err);
+        }
+      }
+      
+      console.log(`Canvas contains ${cellColors.length} cells with colors:`, cellColors);
+    } else {
+      // If there are no cells found in any of the expected locations, try more aggressive inspection
+      console.log("No cells found in standard locations. Checking deeper...");
+      
+      // Directly inspect the meshGradient object for color properties
+      let colorProperties = [];
+      
+      // Check for color arrays directly on meshGradient
+      if (meshGradient.colors && Array.isArray(meshGradient.colors)) {
+        console.log("Found meshGradient.colors:", meshGradient.colors);
+        colorProperties.push({
+          source: "meshGradient.colors",
+          colors: meshGradient.colors.map(c => typeof c === 'string' ? c : (c && c.hex) || c)
+        });
+      }
+      
+      if (meshGradient.currentColors && Array.isArray(meshGradient.currentColors)) {
+        console.log("Found meshGradient.currentColors:", meshGradient.currentColors);
+        colorProperties.push({
+          source: "meshGradient.currentColors",
+          colors: meshGradient.currentColors.map(c => typeof c === 'string' ? c : (c && c.hex) || c)
+        });
+      }
+      
+      // Check in data object
+      if (meshGradient.data) {
+        if (meshGradient.data.colors && Array.isArray(meshGradient.data.colors)) {
+          console.log("Found meshGradient.data.colors:", meshGradient.data.colors);
+          colorProperties.push({
+            source: "meshGradient.data.colors",
+            colors: meshGradient.data.colors.map(c => typeof c === 'string' ? c : (c && c.hex) || c)
+          });
+        }
+        
+        if (meshGradient.data.colorPalette) {
+          console.log("Found meshGradient.data.colorPalette:", meshGradient.data.colorPalette);
+          
+          // Extract colors from the colorPalette object if it has lastGeneratedColors
+          if (meshGradient.data.colorPalette.lastGeneratedColors && 
+              Array.isArray(meshGradient.data.colorPalette.lastGeneratedColors)) {
+            colorProperties.push({
+              source: "meshGradient.data.colorPalette.lastGeneratedColors",
+              colors: meshGradient.data.colorPalette.lastGeneratedColors.map(c => 
+                typeof c === 'string' ? c : (c && c.hex) || c)
+            });
+          } else {
+            // Otherwise just log the colorPalette as an object
+            colorProperties.push({
+              source: "meshGradient.data.colorPalette",
+              colors: Array.isArray(meshGradient.data.colorPalette) ? 
+                meshGradient.data.colorPalette.map(c => typeof c === 'string' ? c : (c && c.hex) || c) :
+                [meshGradient.data.colorPalette]
+            });
+          }
+        }
+      }
+      
+      if (colorProperties.length > 0) {
+        console.log("Found color collections:", colorProperties);
+      } else {
+        console.log("No cells available yet in the gradient");
+      }
+    }
+  } catch (err) {
+    console.error("Error logging cell colors:", err);
   }
 }
 

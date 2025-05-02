@@ -78,8 +78,11 @@
                     <!-- Hidden color picker for cell color selection -->
                     <input type="color" id="cellColorPicker" class="cell-color-picker" />
                     
-                    <!-- Color swatches moved inside canvas container -->
-                    <div id="colorSwatches" class="d-flex justify-content-center mt-3 flex-wrap gap-2" style="min-height: 40px; padding: 5px; width: 100%;"></div>
+                    <!-- Fixed height container for color swatches to prevent layout shifts -->
+                    <div id="colorSwatches" class="swatches-container">
+                        <!-- Initial placeholder to prevent layout shifts -->
+                        <div class="swatches-placeholder"></div>
+                    </div>
                 </div>
 
             </div>
