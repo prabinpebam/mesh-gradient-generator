@@ -95,14 +95,31 @@ function initializeUI() {
         blurAmountValue.textContent = constraints.blur.current;
         maxBlurValue.textContent    = constraints.blur.max;
 
+        // Select random color harmony on initial load
+        selectRandomColorHarmony();
+
         // Initial render ---------------------
-        meshGradient.generate();          // first render uses default theme
+        meshGradient.generate();          // first render uses random harmony selected above
         meshGradient.setColorTheme(colorThemeSelect.value); // ensure synced
 
         // Make sure we're using the toolbar edit mode toggle
         document.getElementById('editModeToggle').addEventListener('change', function() {
             meshGradient.setEditMode(this.checked);
         });
+    }
+
+    // Helper function to select a random color harmony
+    function selectRandomColorHarmony() {
+        const harmonies = colorHarmonySelect.options;
+        if (harmonies.length > 0) {
+            const randomIndex = Math.floor(Math.random() * harmonies.length);
+            colorHarmonySelect.selectedIndex = randomIndex;
+            
+            // Update the mesh gradient with the selected harmony
+            const selectedHarmony = harmonies[randomIndex].value;
+            console.log(`Selected random color harmony: ${selectedHarmony}`);
+            meshGradient.setColorHarmony(selectedHarmony);
+        }
     }
     
     // Generate button click - keep for compatibility but not needed for normal use
@@ -506,7 +523,8 @@ function initializeUI() {
             // Update immediately on input
             sel.oninput=()=>{ 
                 optsObj[key]=sel.value; 
-                meshGradient.setDistortionStack([currentDistortion]); 
+                // Update the distortion without regenerating colors
+                applyDistortionNoColorChange(currentDistortion);
             };
             wrap.appendChild(sel);
         }else{
@@ -519,11 +537,26 @@ function initializeUI() {
             input.oninput=()=>{ 
                 span.textContent=input.value; 
                 optsObj[key]=Number(input.value); 
-                meshGradient.setDistortionStack([currentDistortion]); 
+                // Update the distortion without regenerating colors
+                applyDistortionNoColorChange(currentDistortion);
             };
             wrap.appendChild(input); wrap.appendChild(span);
         }
         return wrap;
+    }
+
+    /* Helper function to apply distortion without regenerating colors */
+    function applyDistortionNoColorChange(distortionConfig) {
+        const distortions = getDistortions();
+        if (distortions) {
+            if (typeof distortions.setStack === 'function') {
+                distortions.setStack([distortionConfig]);
+            }
+            // Use the preserveColors flag (true) to prevent color regeneration
+            if (typeof meshGradient.render === 'function') {
+                meshGradient.render(null, true);
+            }
+        }
     }
 
     /* ------------------------------------------------------------------ */
@@ -555,13 +588,9 @@ function initializeUI() {
             distortionParams.appendChild(createControl(k, meta[k], currentDistortion.opts));
         });
 
-        const distortions = getDistortions();
-        if (distortions && typeof distortions.setStack === 'function') {
-            distortions.setStack([currentDistortion]);
-            
-            // Immediately render without regenerating colors
-            meshGradient.render(null, true);
-        }
+        // Apply the initial distortion without regenerating colors
+        applyDistortionNoColorChange(currentDistortion);
+        
         editModeToggle.checked=false;
         editModeToggle.disabled=true;
     }
