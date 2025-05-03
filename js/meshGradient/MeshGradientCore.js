@@ -196,6 +196,363 @@ class MeshGradientCore {
     }
     
     /**
+     * Animation methods for Voronoi cells
+     */
+    // Initialize animation properties
+    initAnimation() {
+        if (!this.animation) {
+            this.animation = {
+                active: false,
+                frameId: null,
+                params: {
+                    forceStrength: 0.12,
+                    damping: 0.92,
+                    maxSpeed: 3,
+                    wanderJitter: 0.3,
+                    wanderWeight: 0.25,
+                    arrivalThres: 30,
+                    minTurnAngle: 45 * Math.PI/180
+                }
+            };
+            
+            // Store original site positions
+            this.originalSites = [];
+            if (this.data && this.data.voronoi && this.data.voronoi.sites) {
+                this.originalSites = JSON.parse(JSON.stringify(this.data.voronoi.sites));
+            }
+            
+            // Initialize animation properties for each site
+            this.initAnimationProperties();
+        }
+        return this.animation;
+    }
+    
+    // Initialize per-site animation properties
+    initAnimationProperties() {
+        if (!this.animation) this.initAnimation();
+        
+        if (this.data && this.data.voronoi && this.data.voronoi.sites) {
+            const sites = this.data.voronoi.sites;
+            this.animation.sites = sites.map((site, index) => {
+                return {
+                    vx: 0,
+                    vy: 0,
+                    wanderAngle: Math.random() * 2 * Math.PI,
+                    targetIndex: Math.floor(Math.random() * 1000) + 1,
+                    lastTargetAngle: null
+                };
+            });
+        }
+    }
+    
+    // Helper: Calculate Halton sequence
+    halton(i, b) {
+        let res = 0, f = 1 / b;
+        while (i > 0) {
+            res += f * (i % b);
+            i = Math.floor(i / b);
+            f /= b;
+        }
+        return res;
+    }
+    
+    // Helper: Calculate angle between two angles
+    angleBetween(a1, a2) {
+        let d = a1 - a2;
+        d = (d + Math.PI) % (2 * Math.PI) - Math.PI;
+        return Math.abs(d);
+    }
+    
+    // Start animation
+    startCellAnimation() {
+        if (!this.animation) this.initAnimation();
+        
+        if (this.animation.active) return; // Already running
+        this.animation.active = true;
+        
+        // Capture original colors for preservation
+        if (typeof this.getAllColors === 'function') {
+            this.animation.originalColors = this.getAllColors();
+        }
+        
+        // Disable edit mode during animation
+        const wasEditMode = this.editMode;
+        if (wasEditMode) this.setEditMode(false);
+        
+        let lastFrameTime = performance.now();
+        
+        const animate = (timestamp) => {
+            if (!this.animation.active) return;
+            
+            // Calculate delta time in milliseconds
+            const deltaTime = timestamp - lastFrameTime;
+            lastFrameTime = timestamp;
+            
+            // Update positions
+            this.updateAnimationStep(deltaTime);
+            
+            // Render with preserved colors
+            this.render(this.animation.originalColors, true);
+            
+            // Continue animation if active
+            if (this.animation.active) {
+                this.animation.frameId = requestAnimationFrame(animate);
+            }
+        };
+        
+        this.animation.frameId = requestAnimationFrame(animate);
+        return true;
+    }
+    
+    // Stop animation
+    stopCellAnimation() {
+        if (!this.animation) return;
+        
+        this.animation.active = false;
+        
+        if (this.animation.frameId) {
+            cancelAnimationFrame(this.animation.frameId);
+            this.animation.frameId = null;
+        }
+        
+        // Reset to original positions (optional)
+        if (this.animation.resetOnStop && this.originalSites.length > 0) {
+            if (this.data && this.data.voronoi && this.data.voronoi.sites) {
+                this.data.voronoi.sites = JSON.parse(JSON.stringify(this.originalSites));
+                this.render(null, true);
+            }
+        }
+        
+        return true;
+    }
+    
+    // Update animation for one step
+    updateAnimationStep(deltaTime) {
+        // Check for valid animation state
+        if (!this.animation || !this.animation.active) {
+            return false;
+        }
+        
+        // CRITICAL FIX: Ensure animation.sites exists and matches current cell count
+        if (!this.animation.sites || 
+            !this.data || 
+            !this.data.voronoi || 
+            !this.data.voronoi.sites ||
+            this.data.voronoi.sites.length !== this.animation.sites.length) {
+            
+            console.log("[ANIMATION] Cell count mismatch detected in updateAnimationStep, reinitializing");
+            this.initAnimationProperties();
+            
+            // If still no sites, give up
+            if (!this.animation.sites || this.animation.sites.length === 0) {
+                return false;
+            }
+        }
+        
+        // Scale time step to achieve consistent speed
+        const timeStep = Math.min(deltaTime / (1000/60), 2); // Cap at a reasonable value
+        const params = this.animation.params;
+        const sites = this.data.voronoi.sites;
+        const W = this.width;
+        const H = this.height;
+        
+        // Additional check for site count
+        if (Math.random() < 0.01) { // ~1% of frames
+            console.log(`[ANIMATION] Animating ${sites.length} cells (animation sites: ${this.animation.sites.length})`);
+        }
+        
+        let anyMovement = false;
+        
+        // Update every site position
+        for (let i = 0; i < sites.length; i++) {
+            // CRITICAL FIX: Ensure animation properties exist for this site
+            if (!this.animation.sites[i]) {
+                console.log(`[ANIMATION] Missing animation properties for site ${i}, creating...`);
+                this.animation.sites[i] = {
+                    vx: 0,
+                    vy: 0,
+                    wanderAngle: Math.random() * 2 * Math.PI,
+                    targetIndex: Math.floor(Math.random() * 1000) + 1,
+                    lastTargetAngle: null
+                };
+            }
+            
+            // Store original position for tracking movement
+            const origX = site[0];
+            const origY = site[1];
+            
+            // ...existing cell animation physics logic...
+            
+            // Vector to current target
+            let tx = this.halton(animProps.targetIndex, 2) * W;
+            let ty = this.halton(animProps.targetIndex, 3) * H;
+            let dx = tx - site[0];
+            let dy = ty - site[1];
+            let dist = Math.hypot(dx, dy);
+            
+            // On arrival → pick next target respecting minTurnAngle
+            if (dist < params.arrivalThres) {
+                // ...existing target selection logic...
+                
+                const oldAngle = animProps.lastTargetAngle != null
+                    ? animProps.lastTargetAngle
+                    : Math.atan2(dy, dx);
+                    
+                let attempts = 0, chosen = animProps.targetIndex;
+                while (attempts < 10) {
+                    chosen++;
+                    const cx = this.halton(chosen, 2) * W - site[0];
+                    const cy = this.halton(chosen, 3) * H - site[1];
+                    const newAngle = Math.atan2(cy, cx);
+                    
+                    if (animProps.lastTargetAngle === null || 
+                        this.angleBetween(newAngle, oldAngle) >= params.minTurnAngle) {
+                        animProps.targetIndex = chosen;
+                        animProps.lastTargetAngle = newAngle;
+                        break;
+                    }
+                    attempts++;
+                }
+                
+                if (attempts === 10) {
+                    animProps.targetIndex = chosen;
+                    animProps.lastTargetAngle = Math.atan2(
+                        this.halton(chosen, 3) * H - site[1],
+                        this.halton(chosen, 2) * W - site[0]
+                    );
+                }
+                
+                // Recalculate vector to new target
+                tx = this.halton(animProps.targetIndex, 2) * W;
+                ty = this.halton(animProps.targetIndex, 3) * H;
+                dx = tx - site[0];
+                dy = ty - site[1];
+                dist = Math.hypot(dx, dy);
+            }
+            
+            // Wander force
+            animProps.wanderAngle += (Math.random() * 2 - 1) * params.wanderJitter;
+            const wx = Math.cos(animProps.wanderAngle);
+            const wy = Math.sin(animProps.wanderAngle);
+            
+            // Attraction to target
+            const ax = dx / (dist || 1);
+            const ay = dy / (dist || 1);
+            
+            // Blend & normalize
+            let sx = ax * (1 - params.wanderWeight) + wx * params.wanderWeight;
+            let sy = ay * (1 - params.wanderWeight) + wy * params.wanderWeight;
+            const sl = Math.hypot(sx, sy) || 1;
+            sx /= sl;
+            sy /= sl;
+            
+            // Apply thrust with time scaling
+            animProps.vx += sx * params.forceStrength * timeStep;
+            animProps.vy += sy * params.forceStrength * timeStep;
+            
+            // Damping & cap
+            animProps.vx *= params.damping;
+            animProps.vy *= params.damping;
+            const sp = Math.hypot(animProps.vx, animProps.vy);
+            if (sp > params.maxSpeed) {
+                animProps.vx = (animProps.vx / sp) * params.maxSpeed;
+                animProps.vy = (animProps.vy / sp) * params.maxSpeed;
+            }
+            
+            // Move & clamp
+            const padding = 20; // Keep away from edges
+            site[0] = Math.min(Math.max(site[0] + animProps.vx * timeStep, padding), W - padding);
+            site[1] = Math.min(Math.max(site[1] + animProps.vy * timeStep, padding), H - padding);
+            
+            // Track movement for logging
+            const moveX = site[0] - origX;
+            const moveY = site[1] - origY;
+            const moveDist = Math.sqrt(moveX*moveX + moveY*moveY);
+            
+            if (moveDist > maxMovementDist) {
+                maxMovementDist = moveDist;
+                maxMovementIndex = i;
+            }
+            
+            if (moveDist > 0.001) {
+                anyMovement = true;
+                
+                // Log direct position changes for first cell
+                if (i === 0 && Math.random() < 0.05) {
+                    console.log(`[POSITION] Cell 0 moved: [${origX.toFixed(2)},${origY.toFixed(2)}] → [${site[0].toFixed(2)},${site[1].toFixed(2)}], delta: ${moveDist.toFixed(4)}`);
+                }
+            }
+        }
+        
+        // Log max movement
+        if (anyMovement && Math.random() < 0.02) {
+            console.log(`[ANIMATION] Max movement: Cell ${maxMovementIndex} moved ${maxMovementDist.toFixed(4)}px`);
+        }
+        
+        // Fix: Force Voronoi diagram update
+        if (anyMovement) {
+            try {
+                // Update the Voronoi diagram with new cell positions
+                if (this.data && this.data.voronoi) {
+                    // Trigger a recalculation if possible 
+                    if (typeof this.data.voronoi.getCells === 'function') {
+                        console.log("[ANIMATION] Forcing Voronoi recalculation");
+                        this.data.voronoi.getCells(true); // Force recalculation
+                    }
+                    
+                    // Update the Delaunay triangulation if possible
+                    if (this.data.voronoi.delaunay && 
+                        typeof this.data.voronoi.delaunay.update === 'function') {
+                        this.data.voronoi.delaunay.update();
+                    }
+                }
+                
+                // Get colors to preserve
+                let currentColors = null;
+                if (typeof this.getAllColors === 'function') {
+                    currentColors = this.getAllColors();
+                }
+                
+                // Force a render with preserveColors=true
+                if (typeof this.render === 'function') {
+                    this.render(currentColors, true);
+                }
+            } catch (err) {
+                console.error("[ANIMATION] Error updating Voronoi:", err);
+            }
+        }
+        
+        return anyMovement;
+    }
+    
+    // Update animation parameters
+    setAnimationParam(param, value) {
+        if (!this.animation) this.initAnimation();
+        
+        if (param === 'minTurnAngle') {
+            // Convert from degrees to radians
+            this.animation.params[param] = value * Math.PI / 180;
+        } else {
+            this.animation.params[param] = value;
+        }
+        
+        return true;
+    }
+    
+    // Toggle animation
+    toggleCellAnimation(enabled) {
+        if (enabled === undefined) {
+            enabled = !this.animation?.active;
+        }
+        
+        if (enabled) {
+            return this.startCellAnimation();
+        } else {
+            return this.stopCellAnimation();
+        }
+    }
+    
+    /**
      * Reset hover state when mouse leaves
      */
     clearHover() {

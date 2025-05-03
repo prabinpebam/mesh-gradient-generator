@@ -13,6 +13,14 @@ class MeshGradientRenderer {
      * @param {MeshGradientData} data - Data module with color information
      */
     drawCellsToCanvas(ctx, cells, data) {
+        // Debug - log when cells are drawn during animation
+        if (this.core.animation && this.core.animation.active && Math.random() < 0.05) {
+            console.log(`[RENDERER] drawCellsToCanvas with ${cells.length} cells`);
+            if (cells[0]) {
+                console.log(`[RENDERER] First cell path: ${cells[0].path.substring(0, 40)}...`);
+            }
+        }
+        
         cells.forEach((cell, index) => {
             const color = data.getCellColor(index);
             ctx.beginPath();
@@ -140,6 +148,15 @@ class MeshGradientRenderer {
      */
     drawUI(cells, sites, data) {
         const { editMode, hoverCellIndex, hoverControls } = this.core;
+        
+        // During animation, skip UI drawing to improve performance
+        if (this.core.animation && this.core.animation.active) {
+            // Log occasional debug info during animation
+            if (Math.random() < 0.05) {
+                console.log(`[RENDERER] drawUI during animation - sites: ${sites.length}, cells: ${cells.length}`);
+            }
+            return;
+        }
         
         // Reset hover controls
         if (editMode) {
