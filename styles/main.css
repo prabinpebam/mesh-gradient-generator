@@ -371,4 +371,15 @@ input[type="color"]::-webkit-color-swatch-wrapper {
   transform: scale(1.1);
 }
 
+/* Animation parameters transition */
+#animationParameters {
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+    max-height: 0;
+}
+
+#animationParameters.animation-params-visible {
+    max-height: 500px; /* Enough to fit all controls */
+}
+
 

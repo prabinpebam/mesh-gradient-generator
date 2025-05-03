@@ -21,46 +21,39 @@ document.addEventListener('DOMContentLoaded', () => {
         
         console.log('Initializing Voronoi cell animation controls...');
         
-        // Ensure animation object exists
-        if (!meshGradient.animation) {
-            console.warn('Animation object missing - adding basic structure');
-            meshGradient.animation = {
-                active: false,
-                frameId: null,
-                params: {
-                    forceStrength: 0.12,
-                    damping: 0.92,
-                    maxSpeed: 3,
-                    wanderJitter: 0.3,
-                    wanderWeight: 0.25,
-                    arrivalThres: 30,
-                    minTurnAngle: 45 * Math.PI/180
-                }
-            };
-        }
-        
-        // Ensure animation methods exist
-        if (typeof meshGradient.initAnimation !== 'function' && 
-            typeof meshGradient.initAnimationProperties === 'function') {
-            // Fix: Add fallback initAnimation method
-            meshGradient.initAnimation = function() {
-                console.log("[ANIMATION] Fallback initAnimation called");
-                // Basic initialization using the existing initAnimationProperties
-                this.initAnimationProperties();
-                return this.animation;
-            };
-        }
-        
         // Setup UI controls
         setupControls();
     }
     
     function setupControls() {
+        // Get animation parameters div
+        const animationParams = document.getElementById('animationParameters');
+        
+        // Initially hide animation parameters
+        if (animationParams) {
+            animationParams.style.display = 'none';
+        }
+        
         // Animation toggle
         const animationToggle = document.getElementById('animationToggle');
         if (animationToggle) {
+            // Ensure correct initial state
+            animationToggle.checked = false;
+            
             animationToggle.addEventListener('change', (e) => {
                 console.log(`[DEBUG] Animation toggle changed: ${e.target.checked}`);
+                
+                // Show/hide parameters based on toggle state
+                if (animationParams) {
+                    animationParams.style.display = e.target.checked ? 'block' : 'none';
+                    
+                    // Add smooth transition for better UX
+                    if (e.target.checked) {
+                        animationParams.classList.add('animation-params-visible');
+                    } else {
+                        animationParams.classList.remove('animation-params-visible');
+                    }
+                }
                 
                 // Check if required methods exist
                 if (typeof meshGradient.toggleCellAnimation !== 'function') {
@@ -70,14 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Call animation toggle method
                 try {
-                    // Fix: Ensure animation sites are initialized first
-                    if (e.target.checked && 
-                        (!meshGradient.animation.sites || meshGradient.animation.sites.length === 0) && 
-                        typeof meshGradient.initAnimationProperties === 'function') {
-                        console.log('[DEBUG] Initializing animation properties before toggle');
-                        meshGradient.initAnimationProperties();
-                    }
-                    
                     const result = meshGradient.toggleCellAnimation(e.target.checked);
                     console.log(`[DEBUG] toggleCellAnimation returned: ${result}`);
                 } catch (err) {
@@ -88,16 +73,18 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('[ERROR] Animation toggle element not found in DOM!');
         }
         
-        // Setup parameter sliders
+        // Setup parameter sliders that are still in the UI
         setupSlider('forceStrength', 'forceStrengthValue', v => v.toFixed(2));
         setupSlider('damping', 'dampingValue', v => v.toFixed(2));
         setupSlider('maxSpeed', 'maxSpeedValue', v => v.toFixed(1));
-        setupSlider('wanderJitter', 'wanderJitterValue', v => v.toFixed(2));
-        setupSlider('wanderWeight', 'wanderWeightValue', v => v.toFixed(2));
-        setupSlider('arrivalThres', 'arrivalThresValue', v => v.toFixed(0));
-        setupSlider('minTurnAngle', 'minTurnAngleValue', v => v.toFixed(0));
         
-        console.log('Animation controls initialized successfully');
+        // Set default values for removed sliders
+        setDefaultAnimationParam('wanderJitter', 0.3);
+        setDefaultAnimationParam('wanderWeight', 0.25);
+        setDefaultAnimationParam('arrivalThres', 30);
+        setDefaultAnimationParam('minTurnAngle', 45, true); // true = convert to radians
+        
+        console.log('Animation controls initialized with simplified UI');
     }
     
     function setupSlider(sliderId, valueId, formatter = (v => v.toString())) {
@@ -131,6 +118,28 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } else {
             console.warn(`[WARNING] Could not find UI elements for slider: ${sliderId}`);
+        }
+    }
+    
+    /**
+     * Set default value for animation parameter that's no longer in UI
+     */
+    function setDefaultAnimationParam(paramName, value, convertToRadians = false) {
+        if (meshGradient && typeof meshGradient.setAnimationParam === 'function') {
+            try {
+                const finalValue = convertToRadians ? value * Math.PI/180 : value;
+                meshGradient.setAnimationParam(paramName, finalValue);
+                console.log(`[DEBUG] Set default ${paramName} = ${finalValue}`);
+            } catch (err) {
+                console.error(`[ERROR] Error setting default for ${paramName}:`, err);
+            }
+        } else if (meshGradient && meshGradient.animation && meshGradient.animation.params) {
+            // Direct update of parameters if method doesn't exist
+            meshGradient.animation.params[paramName] = 
+                convertToRadians ? value * Math.PI/180 : value;
+            console.log(`[DEBUG] Directly set default ${paramName} = ${value}`);
+        } else {
+            console.warn(`[WARNING] Cannot set default for parameter: ${paramName}`);
         }
     }
     

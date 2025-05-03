@@ -2,7 +2,7 @@
 <html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"="width=device-width, initial-scale=1.0">
     <title>Mesh Gradient Generator</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -216,7 +216,8 @@
                                     <input class="form-check-input" type="checkbox" id="animationToggle">
                                 </div>
                             </div>
-                            <div id="animationParameters">
+                            <!-- Add style to animation parameters div -->
+                            <div id="animationParameters" style="overflow: hidden; transition: all 0.3s ease-out;">
                                 <!-- Force Strength -->
                                 <div class="mb-2">
                                     <div class="d-flex justify-content-between">
@@ -247,45 +248,8 @@
                                            min="0" max="6" step="0.1" value="3">
                                 </div>
                                 
-                                <!-- Wander Jitter -->
-                                <div class="mb-2">
-                                    <div class="d-flex justify-content-between">
-                                        <small>Wander Jitter</small>
-                                        <small id="wanderJitterValue">0.3</small>
-                                    </div>
-                                    <input type="range" class="form-range" id="wanderJitter" 
-                                           min="0" max="1" step="0.05" value="0.3">
-                                </div>
-                                
-                                <!-- Wander Weight -->
-                                <div class="mb-2">
-                                    <div class="d-flex justify-content-between">
-                                        <small>Wander Weight</small>
-                                        <small id="wanderWeightValue">0.25</small>
-                                    </div>
-                                    <input type="range" class="form-range" id="wanderWeight" 
-                                           min="0" max="1" step="0.05" value="0.25">
-                                </div>
-                                
-                                <!-- Arrival Threshold -->
-                                <div class="mb-2">
-                                    <div class="d-flex justify-content-between">
-                                        <small>Arrival Threshold</small>
-                                        <small id="arrivalThresValue">30</small>
-                                    </div>
-                                    <input type="range" class="form-range" id="arrivalThres" 
-                                           min="5" max="100" step="5" value="30">
-                                </div>
-                                
-                                <!-- Min Turn Angle -->
-                                <div class="mb-2">
-                                    <div class="d-flex justify-content-between">
-                                        <small>Min Turn Angle°</small>
-                                        <small id="minTurnAngleValue">45</small>
-                                    </div>
-                                    <input type="range" class="form-range" id="minTurnAngle" 
-                                           min="0" max="180" step="1" value="45">
-                                </div>
+                                <!-- Removed: Wander Jitter, Wander Weight, Arrival Threshold, Min Turn Angle -->
+                                <!-- These values will use their defaults -->
                             </div>
                         </div>
 
