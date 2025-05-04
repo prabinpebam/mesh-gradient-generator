@@ -61,6 +61,36 @@ function hasActiveDistortion() {
         : false;
 }
 
+// Add this near the top of the file, after existing imports/setup
+
+/**
+ * Safe version of isPointInControl that works with both old and new APIs
+ */
+function safeIsPointInControl(x, y, control) {
+    if (!window.meshGradient) return false;
+    
+    // First try renderer method (new API)
+    if (meshGradient.renderer && typeof meshGradient.renderer.isPointInControl === 'function') {
+        return meshGradient.renderer.isPointInControl(x, y, control, meshGradient.hoverControls);
+    }
+    
+    // Then try direct method (current API)
+    if (typeof meshGradient.isPointInControl === 'function') {
+        return meshGradient.isPointInControl(x, y, control);
+    }
+    
+    // Last resort - basic implementation
+    if (!meshGradient.hoverControls) return false;
+    const btn = meshGradient.hoverControls[control];
+    if (!btn) return false;
+    const dx = x - btn.x;
+    const dy = y - btn.y;
+    return (dx * dx + dy * dy) <= (btn.radius * btn.radius);
+}
+
+// Make it available globally just in case
+window.safeIsPointInControl = safeIsPointInControl;
+
 // Move all UI initialization to a separate function
 function initializeUI() {
     if (!meshGradient) return;
@@ -283,8 +313,37 @@ function initializeUI() {
         meshGradient.updateButtonHover(x, y);
     });
     
-    canvas.addEventListener('mouseup', function() {
-        meshGradient.endDrag();
+    canvas.addEventListener('mouseup', function(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        if (!window.meshGradient) return;
+        
+        // Use the safe version for robust error handling
+        if (safeIsPointInControl(x, y, 'colorBtn')) {
+            // Color button was clicked
+            const colorPicker = document.getElementById('cellColorPicker');
+            if (colorPicker && meshGradient.hoverCellIndex >= 0) {
+                const currentColor = meshGradient.getCellColor(meshGradient.hoverCellIndex);
+                colorPicker.value = currentColor.hex;
+                colorPicker.dataset.cellIndex = meshGradient.hoverCellIndex;
+                colorPicker.click();
+            }
+        } else if (safeIsPointInControl(x, y, 'lockBtn')) {
+            // Lock button was clicked
+            if (meshGradient.hoverCellIndex >= 0) {
+                const isLocked = meshGradient.isCellColorLocked(meshGradient.hoverCellIndex);
+                if (isLocked) {
+                    meshGradient.unlockCellColor(meshGradient.hoverCellIndex);
+                } else {
+                    meshGradient.lockCellColor(meshGradient.hoverCellIndex);
+                }
+            }
+        } else if (meshGradient.dragSiteIndex !== -1) {
+            // End drag operation
+            meshGradient.endDrag();
+        }
     });
     
     canvas.addEventListener('mouseleave', function() {
@@ -409,7 +468,7 @@ function initializeUI() {
             // Original hover mode behavior
             if (meshGradient.hoverControls) {
                 // Check if click is on the color picker button
-                if (meshGradient.isPointInControl(x, y, 'colorBtn')) {
+                if (safeIsPointInControl(x, y, 'colorBtn')) {
                     selectedCellIndex = meshGradient.hoverControls.cell;
                     
                     // Get current color and set it as the color picker value
@@ -426,7 +485,7 @@ function initializeUI() {
                     colorPicker.click();
                 } 
                 // Check if click is on the lock/unlock button
-                else if (meshGradient.isPointInControl(x, y, 'lockBtn')) {
+                else if (safeIsPointInControl(x, y, 'lockBtn')) {
                     const cellIndex = meshGradient.hoverControls.cell;
                     const isLocked = meshGradient.isCellColorLocked(cellIndex);
                     
@@ -736,7 +795,6 @@ function updateSwatches() {
       console.warn("Could not set up color picker styles:", err);
     }
     
-    // Rest of the updateSwatches function...
     // Get all unique colors from the gradient
     const uniqueColors = [];
     
@@ -764,23 +822,24 @@ function updateSwatches() {
       if (uniqueColors.length === 0 && meshGradient.data && meshGradient.data.currentColors) {
         try {
           meshGradient.data.currentColors.forEach(color => {
-            if (color && color.hex && !uniqueColors.includes(color.hex)) {
-              uniqueColors.push(color.hex);
+            const hexColor = typeof color === 'string' ? color : (color && color.hex);
+            if (hexColor && !uniqueColors.includes(hexColor)) {
+              uniqueColors.push(hexColor);
             }
           });
         } catch (err) {
-          console.warn("Error accessing currentColors:", err);
+          console.warn("Error using currentColors:", err);
         }
       }
       
-      // Approach 3: Try using getCellColor for each cell
+      // Approach 3: Use getCellColor for each cell if available
       if (uniqueColors.length === 0 && typeof meshGradient.getCellColor === 'function') {
         try {
           // Get cell count first
           const cellCount = typeof meshGradient.getCellCount === 'function' ? 
-            meshGradient.getCellCount() : 
-            (meshGradient.data && meshGradient.data.cellCount ? meshGradient.data.cellCount : 5);
-          
+              meshGradient.getCellCount() : 
+              (meshGradient.data && meshGradient.data.cellCount ? meshGradient.data.cellCount : 5);
+              
           for (let i = 0; i < cellCount; i++) {
             const color = meshGradient.getCellColor(i);
             if (color && color.hex && !uniqueColors.includes(color.hex)) {
@@ -1004,7 +1063,6 @@ function logAllCellColors(source = 'unknown') {
             colors: meshGradient.data.colors.map(c => typeof c === 'string' ? c : (c && c.hex) || c)
           });
         }
-        
         if (meshGradient.data.colorPalette) {
           console.log("Found meshGradient.data.colorPalette:", meshGradient.data.colorPalette);
           
@@ -1021,7 +1079,7 @@ function logAllCellColors(source = 'unknown') {
             colorProperties.push({
               source: "meshGradient.data.colorPalette",
               colors: Array.isArray(meshGradient.data.colorPalette) ? 
-                meshGradient.data.colorPalette.map(c => typeof c === 'string' ? c : (c && c.hex) || c) :
+                meshGradient.data.colorPalette.map(c => typeof c === 'string' ? c : (c && c.hex) || c) : 
                 [meshGradient.data.colorPalette]
             });
           }
@@ -1042,7 +1100,6 @@ function logAllCellColors(source = 'unknown') {
 // Add a listener for our new custom event
 document.addEventListener('meshColorsAvailable', function(event) {
   console.log('meshColorsAvailable event received:', event.detail);
-  
   if (event.detail && Array.isArray(event.detail.colors)) {
     console.log(`Custom event provided ${event.detail.colors.length} colors:`, 
       event.detail.colors.map(c => typeof c === 'string' ? c : (c && c.hex)));
