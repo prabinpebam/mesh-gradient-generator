@@ -20,6 +20,8 @@ This document provides a comprehensive overview of how animation works in the Me
 animation = {
   active: false,              // Whether animation is currently running
   frameId: null,              // Current animation frame ID for cancellation
+  originalColors: [],         // Colors captured at animation start
+  lastFrameTime: 0,           // Last frame timestamp for delta calculation
   params: {                   // Animation behavior parameters
     forceStrength: 0.12,      // How strongly cells accelerate
     damping: 0.92,            // Velocity reduction per frame (0-1)
@@ -84,6 +86,27 @@ hueAnimator = {
 └────────────────────────────────────────────────────────────────────┘
 ```
 
+### 2.2 Hue Animation Initialization
+
+```
+┌─────────────────┐      ┌─────────────────┐
+│ Hue Animation   │      │ direct call to  │
+│ Toggle Control  │  or  │ startHue        │
+└────────┬────────┘      │ Animation()     │
+         │               └────────┬────────┘
+         └───────────────────────┘
+                         │
+                         ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                      startHueAnimation()                           │
+│                                                                    │
+│  • Sets hueAnimator.active = true                                  │
+│  • Records animation start time                                    │
+│  • Captures base colors via getAllColors()                         │
+│  • Starts animation loop with requestAnimationFrame                │
+└────────────────────────────────────────────────────────────────────┘
+```
+
 ## 3. Animation Control Flow
 
 ### 3.1 Starting Animation
@@ -109,6 +132,16 @@ hueAnimator = {
                                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  Disable edit mode if active                                        │
+└────────────────────────────────┬──────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Set animation.active = true                                        │
+└────────────────────────────────┬──────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Set lastFrameTime = performance.now()                              │
 └────────────────────────────────┬──────────────────────────────────┘
                                  │
                                  ▼
@@ -144,7 +177,7 @@ hueAnimator = {
                                  │
                                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Cancel animation frame via cancelAnimationFrame                    │
+│  Cancel animation frame via cancelAnimationFrame(animation.frameId) │
 └────────────────────────────────┬──────────────────────────────────┘
                                  │
                                  ▼
@@ -155,6 +188,8 @@ hueAnimator = {
 
 ## 4. Animation Update Cycle
 
+### 4.1 Cell Position Animation
+
 ```
 ┌────────────────────────┐
 │ requestAnimationFrame  │
@@ -162,7 +197,8 @@ hueAnimator = {
             │
             ▼
 ┌────────────────────────┐
-│ Calculate deltaTime    │
+│ Calculate deltaTime:   │
+│ now - lastFrameTime    │
 └───────────┬────────────┘
             │
             ▼
@@ -208,6 +244,46 @@ hueAnimator = {
 ┌────────────────────────┐
 │ Schedule next frame if │
 │ animation.active       │
+└────────────────────────┘
+```
+
+### 4.2 Hue Animation
+
+```
+┌────────────────────────┐
+│ requestAnimationFrame  │
+└───────────┬────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│ Calculate elapsed time:│
+│ now - startTime        │
+└───────────┬────────────┘
+            │
+            ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ For Each Cell:                                                         │
+│                                                                        │
+│  1. Get base color                                                     │
+│  2. Convert RGB to HSL                                                 │
+│  3. Modify hue value:                                                  │
+│     • Calculate rotation amount = elapsedTime * speed / 1000           │
+│     • Apply rotation in specified direction                            │
+│     • Normalize hue value to 0-360 range                               │
+│  4. Convert HSL back to RGB                                            │
+│  5. Update cell color                                                  │
+└───────────┬────────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│ Render with updated    │
+│ colors                 │
+└───────────┬────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│ Schedule next frame if │
+│ hueAnimator.active     │
 └────────────────────────┘
 ```
 
@@ -287,7 +363,14 @@ hueAnimator = {
 | `arrivalThres` | Target switching distance | Precise targeting, frequent stops | Approximate paths, continuous movement |
 | `minTurnAngle` | Direction change minimum | Straight paths with small turns | Sharp turns, dramatic direction changes |
 
-### 6.2 Parameter Relationships Diagram
+### 6.2 Hue Animation Parameters
+
+| Parameter | Effect | Low Values | High Values |
+|-----------|--------|------------|------------|
+| `speed` | Rotation rate (degrees/second) | Slow, subtle color changes | Rapid, vibrant color cycling |
+| `direction` | Rotation direction | Counter-clockwise (false) | Clockwise (true) |
+
+### 6.3 Parameter Relationships Diagram
 
 ```
                     ┌─────────────┐
@@ -347,35 +430,87 @@ hueAnimator = {
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 7.2 Performance Optimizations
+### 7.2 HSL Color Transformation for Hue Animation
+
+```javascript
+// Implementation of color transformation for hue animation
+function animateHues(timestamp) {
+  if (!hueAnimator.active) return;
+  
+  // Calculate elapsed time and rotation amount
+  const elapsed = timestamp - hueAnimator.startTime;
+  const rotationAmount = (hueAnimator.speed * elapsed / 1000) % 360;
+  
+  // Process each cell color
+  for (let i = 0; i < hueAnimator.baseColors.length; i++) {
+    const baseColor = hueAnimator.baseColors[i];
+    
+    // Convert RGB to HSL
+    const hsl = rgbToHsl(baseColor.r, baseColor.g, baseColor.b);
+    
+    // Apply hue rotation
+    hsl[0] = hueAnimator.direction 
+      ? (hsl[0] + rotationAmount) % 360 
+      : (hsl[0] - rotationAmount + 360) % 360;
+    
+    // Convert back to RGB
+    const rgb = hslToRgb(hsl[0], hsl[1], hsl[2]);
+    
+    // Update color
+    updateCellColor(i, rgb[0], rgb[1], rgb[2]);
+  }
+  
+  // Render and continue animation
+  render();
+  hueAnimator.frameId = requestAnimationFrame(animateHues);
+}
+```
+
+### 7.3 Performance Optimizations
 
 - **UI Optimization**: The system skips drawing UI elements during animation to improve frame rate
 - **Time Scaling**: Animation speed is adjusted based on actual frame rate to ensure consistent motion
+- **Delta Time**: Time-based animation ensures consistent speed regardless of frame rate
 - **Limited Logging**: Debug logging reduced during animation frames
 - **Bounded Movement**: Cell position changes capped to prevent visual glitches
+- **Targeted Rerendering**: Only updates what's necessary during animation cycles
 
 ## 8. Animation API Reference
 
-### 8.1 Control Methods
+### 8.1 Cell Animation Control Methods
 
 - **toggleCellAnimation(enabled)**: Start or stop animation
 - **startCellAnimation()**: Start the animation
 - **stopCellAnimation()**: Stop the animation
-
-### 8.2 Parameter Setting
-
 - **setAnimationParam(param, value)**: Set a specific animation parameter
 - **initAnimation()**: Initialize animation system
 - **initAnimationProperties()**: Setup per-cell animation properties
+
+### 8.2 Hue Animation Control Methods
+
+- **toggleHueAnimation(enabled)**: Start or stop hue animation
+- **startHueAnimation()**: Start the hue animation
+- **stopHueAnimation()**: Stop the hue animation
+- **setHueAnimationSpeed(speed)**: Set hue rotation speed (degrees/second)
+- **setHueAnimationDirection(clockwise)**: Set rotation direction
+
+### 8.3 Animation Event Hooks
+
+- **onAnimationStart**: Called when animation begins
+- **onAnimationStop**: Called when animation ends
+- **onAnimationFrame**: Called each animation update (if registered)
 
 ## 9. Animation UI Controls
 
 The animation UI provides controls for:
 
-- Toggling animation on/off
+- Toggling cell animation on/off
+- Toggling hue animation on/off
 - Adjusting force strength (acceleration)
 - Setting damping factor (deceleration)
 - Setting maximum speed
+- Controlling hue animation speed
+- Setting hue rotation direction
 
 Advanced parameters are set to carefully tuned defaults:
 - Wander jitter: 0.3
@@ -384,3 +519,26 @@ Advanced parameters are set to carefully tuned defaults:
 - Minimum turn angle: 45 degrees (0.79 radians)
 
 These parameters ensure smooth, visually pleasing motion with interesting paths and behaviors without overwhelming the user with too many controls.
+
+## 10. Implementation Considerations
+
+### 10.1 Combining Cell and Hue Animation
+
+Both animation systems can run independently or simultaneously:
+
+- Cell animation: Controls position of Voronoi cells
+- Hue animation: Controls color cycling independent of position
+
+When both are active, the renderer preserves the current hue-adjusted colors while updating positions.
+
+### 10.2 Animation State Persistence
+
+Animation states are preserved when:
+- Resizing the canvas
+- Adding/removing controls
+- Exporting/importing configurations
+
+Animation is automatically paused during:
+- Edit mode
+- Export operations
+- When window loses focus (optional setting)
