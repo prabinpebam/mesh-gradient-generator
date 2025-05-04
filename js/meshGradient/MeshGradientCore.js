@@ -277,10 +277,8 @@ class MeshGradientCore {
         if (this.animation.active) return; // Already running
         this.animation.active = true;
         
-        // Capture original colors for preservation
-        if (typeof this.getAllColors === 'function') {
-            this.animation.originalColors = this.getAllColors();
-        }
+        // Don't capture colors here anymore - we'll get colors dynamically
+        // to allow hue animation to work alongside cell animation
         
         // Disable edit mode during animation
         const wasEditMode = this.editMode;
@@ -298,8 +296,18 @@ class MeshGradientCore {
             // Update positions
             this.updateAnimationStep(deltaTime);
             
-            // Render with preserved colors
-            this.render(this.animation.originalColors, true);
+            // Get current colors - allow hue animation to provide them if active
+            let currentColors = null;
+            
+            // Get colors from hue animator if active
+            if (this.hueAnimator && this.hueAnimator.active) {
+                // Let hue animator calculate current colors - pass true to get colors without rendering
+                currentColors = this.hueAnimator.getCurrentColors();
+                console.log("[ANIMATION] Using hue-adjusted colors");
+            }
+            
+            // Render with appropriate colors - always preserveColors=true
+            this.render(currentColors, true);
             
             // Continue animation if active
             if (this.animation.active) {
@@ -618,12 +626,52 @@ class MeshGradientCore {
         this.render(null, true);
     }
     
+    /**
+     * Set the cell count
+     * @param {Number} count - New cell count
+     * @param {Function} callback - Callback after setting cell count
+     */
     setCellCount(count) { 
+        // When changing cell count while hue animation is active, 
+        // we need to pause and restart the animation to capture the new cells
+        const hueAnimWasActive = this.hueAnimator && this.hueAnimator.active;
+        
+        // Temporarily stop hue animation if it's running
+        if (hueAnimWasActive) {
+            console.log("[CELL COUNT] Temporarily stopping hue animation");
+            this.stopHueAnimation();
+        }
+        
         // When changing cell count, regenerate the gradient without preserving colors
-        return this.data.setCellCount(count, () => this.render()); 
+        const result = this.data.setCellCount(count, () => this.render());
+        
+        // Restart hue animation if it was active
+        if (hueAnimWasActive) {
+            console.log("[CELL COUNT] Restarting hue animation with new cell count");
+            setTimeout(() => {
+                this.startHueAnimation();
+            }, 100); // Small delay to ensure render completes
+        }
+        
+        return result;
     }
-    setColorHarmony(harmonyType) { this.data.setColorHarmony(harmonyType, () => this.render()); }
-    setColorTheme(theme) { this.data.setColorTheme(theme, () => this.render()); }
+    
+    setColorHarmony(harmonyType) { 
+        this.data.setColorHarmony(harmonyType, () => {
+            this.render();
+            if (this.hueAnimator && this.hueAnimator.active) {
+                this.hueAnimator.updateBaseColors();
+            }
+        });
+    }
+    setColorTheme(theme) { 
+        this.data.setColorTheme(theme, () => {
+            this.render();
+            if (this.hueAnimator && this.hueAnimator.active) {
+                this.hueAnimator.updateBaseColors();
+            }
+        });
+    }
     
     setCellColor(cellIndex, hexColor, lock = false) {
         this.data.setCellColor(cellIndex, hexColor, lock);
@@ -654,6 +702,11 @@ class MeshGradientCore {
     adjustColors(options = {}) {
         const colors = this.data.adjustColors(options);
         this.render(colors);
+        
+        if (this.hueAnimator && this.hueAnimator.active) {
+            this.hueAnimator.updateBaseColors();
+        }
+        
         return colors;
     }
     
@@ -839,6 +892,14 @@ class MeshGradientCore {
             });
             
             document.dispatchEvent(event);
+            
+            // If colors were explicitly changed (not just preserved) and hue animation is active,
+            // update the base colors in the hue animator
+            if (!args[1] && this.hueAnimator && this.hueAnimator.active) {
+                // args[1] is preserveColors - if false, colors were explicitly changed
+                setTimeout(() => this.hueAnimator.updateBaseColors(), 0);
+            }
+            
             return result;
         };
         

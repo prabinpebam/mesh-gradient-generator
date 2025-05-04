@@ -624,6 +624,19 @@ class MeshGradientData {
             return this.currentColors[cellIndex];
         }
         
+        // Safety check before using colorPalette
+        if (!this.colorPalette || typeof this.colorPalette.generateColor !== 'function') {
+            // Create a fallback color if colorPalette is not available
+            const fallbackColors = [
+                {hex: '#5671e7', h: 230, s: 76, l: 62},
+                {hex: '#56e797', h: 151, s: 76, l: 62},
+                {hex: '#e77156', h: 14, s: 76, l: 62},
+                {hex: '#9e56e7', h: 269, s: 76, l: 62},
+                {hex: '#e756ce', h: 308, s: 76, l: 62}
+            ];
+            return fallbackColors[cellIndex % fallbackColors.length];
+        }
+        
         // Generate fallback color using modulo operation to ensure we have something
         return this.colorPalette.generateColor(cellIndex % 5);
     }

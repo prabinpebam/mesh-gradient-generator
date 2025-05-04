@@ -89,6 +89,22 @@ class HueAnimator {
     }
     
     /**
+     * Get current hue-adjusted colors without rendering
+     * @returns {Array} Array of adjusted color objects
+     */
+    getCurrentColors() {
+        if (!this.active || !this.baseColors || this.baseColors.length === 0) {
+            return null;
+        }
+        
+        // Calculate elapsed seconds
+        const elapsedSeconds = (performance.now() - this.startTime) / 1000;
+        
+        // Return colors with adjusted hue
+        return this.calculateHueAdjustedColors(elapsedSeconds);
+    }
+    
+    /**
      * Animation frame function
      * @param {Number} timestamp - Current timestamp
      */
@@ -123,15 +139,58 @@ class HueAnimator {
      * @returns {Array} - Array of adjusted color objects
      */
     calculateHueAdjustedColors(elapsedTime) {
-        // Calculate total hue offset - fix the calculation
+        // Calculate total hue offset
         const hueOffset = (this.speed * elapsedTime) % 360;
         const directionMultiplier = this.direction ? 1 : -1;
         const finalHueOffset = hueOffset * directionMultiplier;
         
+        // Check if we have valid base colors
+        if (!this.baseColors || this.baseColors.length === 0) {
+            console.warn("[HueAnimator] No base colors available, getting new colors");
+            this.baseColors = this.core.getAllColors();
+            
+            // If still no colors, bail out
+            if (!this.baseColors || this.baseColors.length === 0) {
+                console.error("[HueAnimator] Failed to get colors");
+                return [];
+            }
+        }
+        
+        // Check if cell count has changed
+        try {
+            const cellCount = this.core.getCellCount();
+            if (cellCount > this.baseColors.length) {
+                console.log(`[HueAnimator] Cell count increased from ${this.baseColors.length} to ${cellCount}, updating colors`);
+                this.baseColors = this.core.getAllColors();
+            }
+        } catch (err) {
+            console.error("[HueAnimator] Error checking cell count:", err);
+        }
+        
         // Apply offset to each base color
-        return this.baseColors.map(color => {
+        return this.baseColors.map((color, index) => {
+            // Check if we need a color for an index not in baseColors
+            if (!color) {
+                // Try to get color from core
+                try {
+                    color = this.core.getCellColor(index);
+                    
+                    // If we got a color, add it to baseColors
+                    if (color) {
+                        this.baseColors[index] = color;
+                    } else {
+                        return null;  // Skip if no color available
+                    }
+                } catch (err) {
+                    console.error(`[HueAnimator] Error getting color for index ${index}:`, err);
+                    return null;  // Skip if error
+                }
+            }
+            
             // Skip locked colors if method exists
-            if (this.core.isCellColorLocked && this.core.isCellColorLocked(color.cellIndex)) {
+            if (this.core.isCellColorLocked && 
+                typeof this.core.isCellColorLocked === 'function' && 
+                this.core.isCellColorLocked(color.cellIndex || index)) {
                 return {...color};
             }
             
@@ -145,9 +204,9 @@ class HueAnimator {
                 ...color,
                 h: newHue,
                 hex: this.hslToHex(newHue, color.s, color.l),
-                cellIndex: color.cellIndex
+                cellIndex: color.cellIndex !== undefined ? color.cellIndex : index
             };
-        });
+        }).filter(color => color !== null);  // Remove any null entries
     }
     
     /**
@@ -192,5 +251,21 @@ class HueAnimator {
         };
         
         return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+
+    /**
+     * Update base colors while preserving animation state
+     * This ensures animation continues from newly set colors
+     */
+    updateBaseColors() {
+        if (!this.active) return;
+        
+        // Get current colors from the core
+        const newColors = this.core.getAllColors();
+        
+        if (newColors && newColors.length > 0) {
+            console.log("[HueAnimator] Updating base colors during animation");
+            this.baseColors = newColors;
+        }
     }
 }
