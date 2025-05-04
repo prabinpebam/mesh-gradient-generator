@@ -1,123 +1,279 @@
-# Mesh Gradient: Application Overview
+# Mesh Gradient Generator - Technical Architecture Overview
 
-## Introduction
+## 1. Project Overview
 
-Mesh Gradient is a project focused on creating dynamic gradient-based visual effects. This document provides a high-level technical overview of the project architecture, components, and organization.
+Mesh Gradient Generator is a browser-based application for creating, manipulating, and animating Voronoi-based gradients. It features real-time interactions, advanced color management, animation systems, and distortion effects, all implemented with vanilla JavaScript and HTML5 Canvas.
 
-## Technology Stack
+## 2. System Architecture
 
-- **Frontend**: React.js with TypeScript
-- **State Management**: Redux/Context API
-- **Styling**: CSS Modules/Styled Components
-- **Build Tool**: Vite
-- **Package Manager**: npm/yarn
-- **Testing**: Jest, React Testing Library
-- **CI/CD**: GitHub Actions
-
-## System Architecture
-
-The application follows a component-based architecture with clear separation of concerns:
+The project uses a modular architecture with separation of concerns:
 
 ```
-┌─────────────────────────────────────┐
-│            Application              │
-├─────────────┬───────────────────────┤
-│  UI Layer   │     Business Logic    │
-├─────────────┼───────────────────────┤
-│ Components  │       Utilities       │
-├─────────────┼───────────────────────┤
-│   Assets    │        Hooks          │
-└─────────────┴───────────────────────┘
+┌─────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ HTML/CSS UI │◄───►│  MeshGradient   │◄───►│MeshGradientCore │
+│             │     │  (Public API)   │     │  (Controller)   │
+└─────────────┘     └─────────────────┘     └────────┬────────┘
+                                                    │
+                                                    ▼
+      ┌─────────────────────────────────────────────────────────────┐
+      │                                                             │
+┌─────┴─────┐     ┌─────────────┐     ┌───────────────┐     ┌───────┴───────┐
+│ Animation │     │MeshGradient │     │ MeshGradient  │     │   Distortion  │
+│ Systems   │◄───►│  Renderer   │◄───►│     Data      │◄───►│    Manager    │
+└───────────┘     └─────────────┘     └───────────────┘     └───────────────┘
+    │                   │                    │
+    │                   │                    │
+    ▼                   ▼                    ▼
+┌───────────┐     ┌─────────────┐     ┌───────────────┐
+│ - Cell    │     │ - Drawing   │     │ - Voronoi     │
+│ - Hue     │     │ - Blur      │     │ - Colors      │
+└───────────┘     └─────────────┘     └───────────────┘
 ```
 
-## Folder Structure
+## 3. Core Components
+
+### 3.1 MeshGradientCore
+
+Central controller class responsible for:
+- Canvas setup and management
+- Coordinating all operations
+- User interaction handling
+- Event dispatching
+- Animation coordination
+- Render pipeline orchestration
+
+### 3.2 MeshGradientData
+
+Manages all data aspects including:
+- Voronoi cell geometry generation and manipulation
+- Color generation using harmonies and themes
+- Color state management
+- Cell and gradient parameters
+- Distortion settings
+
+### 3.3 MeshGradientRenderer
+
+Handles visual display:
+- Cell rendering to canvas
+- Blur effect application
+- UI element rendering (edit mode, hover controls)
+- Bilinear sampling for distortions
+- Performance optimizations for mobile
+
+### 3.4 Animation Systems
+
+Two independent animation systems:
+
+1. **Cell Animation**: Physics-based movement with:
+   - Target-driven motion using Halton sequences
+   - Force, velocity, and damping parameters
+   - Semi-random wander behavior
+
+2. **Hue Animation**: Color cycling with:
+   - Time-based hue rotation
+   - Configurable speed and direction
+   - Color lock preservation
+
+### 3.5 Distortion Manager
+
+Post-processing pipeline for applying visual effects:
+- UV coordinate transformation system
+- Pixel-level manipulation
+- Multiple effect types (Polar, Ripple, Wave, etc.)
+- Bilinear sampling for smooth results
+
+## 4. Rendering Pipeline
+
+```
+┌───────────────────┐
+│ Generate/Update   │
+│ Voronoi Diagram   │
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────┐
+│ Process & Apply   │
+│ Colors            │
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────┐
+│ Render Cells to   │
+│ Off-screen Canvas │
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────┐
+│ Apply Blur Effect │
+│ (if enabled)      │
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────┐
+│ Apply Distortion  │
+│ Effects           │
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────┐
+│ Draw UI Elements  │
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────┐
+│ Display Result    │
+│ on Main Canvas    │
+└───────────────────┘
+```
+
+## 5. Color Management System
+
+The project includes a sophisticated color management system:
+
+- **Color Sources**: Base color, harmonies, themes, explicit settings
+- **Color Processing**: HSL/RGB conversions, adjustments, locking
+- **Color Storage**: Multi-format color objects with hex and HSL values
+- **Preservation Logic**: Selective regeneration based on context
+- **Animation Integration**: Color state management during animations
+- **Event System**: Custom events for color changes and updates
+
+## 6. Animation Architecture
+
+Both animation systems use time-based operations for consistent visual results:
+
+```
+┌────────────────────┐     ┌────────────────────┐
+│Cell Animation Loop │     │Hue Animation Loop  │
+└─────────┬──────────┘     └────────┬───────────┘
+          │                         │
+          ▼                         ▼
+┌────────────────────┐     ┌────────────────────┐
+│Calculate Time Delta│     │Calculate Elapsed   │
+└─────────┬──────────┘     │Time                │
+          │                └────────┬───────────┘
+          ▼                         │
+┌────────────────────┐             │
+│Update Cell         │             │
+│Positions           │             ▼
+└─────────┬──────────┘     ┌────────────────────┐
+          │                │Calculate Hue       │
+          │                │Offset              │
+          │                └────────┬───────────┘
+          │                         │
+          ▼                         ▼
+┌────────────────────┐     ┌────────────────────┐
+│Check for Active    │◄────┤Apply Color         │
+│Hue Animation       │     │Adjustments         │
+└─────────┬──────────┘     └────────┬───────────┘
+          │                         │
+          ▼                         │
+┌────────────────────┐              │
+│Render with         │◄─────────────┘
+│Combined Changes    │
+└────────────────────┘
+```
+
+## 7. Distortion Effects System
+
+Post-processing system that applies visual effects:
+
+- **UV-Based**: Coordinate-space transformations
+- **Per-Pixel**: JavaScript-based processing
+- **Bilinear Sampling**: Smooth transitions between pixels
+- **Effect Catalog**: Polar/Swirl, Ripple, Wave, Twist, Bulge, Barrel
+
+## 8. Event System
+
+Custom event system for loose coupling between components:
+
+```
+┌─────────────────┐       ┌─────────────────┐
+│ Core Components │       │   UI Elements   │
+│ (State Changes) │──────►│  (Update View)  │
+└────────┬────────┘       └────────┬────────┘
+         │                         │
+         │                         │
+         │       ┌─────────┐       │
+         └──────►│ Events  │◄──────┘
+                 └─────────┘
+```
+
+Key events:
+- `meshColorsChanged`: Fired when colors are regenerated
+- `meshColorsAvailable`: Fired after every render
+- `hueAnimationStateChanged`: Animation state updates
+- `cellCountChanged`: When number of cells changes
+
+## 9. File Structure
 
 ```
 mesh-gradient/
-├── public/               # Static files
-├── src/                  # Source files
-│   ├── assets/           # Images, fonts, etc.
-│   ├── components/       # Reusable UI components
-│   │   ├── common/       # Shared components
-│   │   └── gradient/     # Gradient-specific components
-│   ├── hooks/            # Custom React hooks
-│   ├── pages/            # Application pages/routes
-│   ├── services/         # API services and external integrations
-│   ├── store/            # State management
-│   ├── types/            # TypeScript type definitions
-│   ├── utils/            # Helper functions
-│   ├── App.tsx           # Main application component
-│   └── main.tsx          # Entry point
-├── tests/                # Test files
-├── Documentations/       # Project documentation
-├── .github/              # GitHub configuration
-├── vite.config.ts        # Vite configuration
-└── package.json          # Project dependencies
+├── index.html                      # Main application HTML
+├── styles/
+│   └── main.css                    # Core styles
+├── js/
+│   ├── meshGradient.js             # Public API
+│   ├── meshGradient/
+│   │   ├── MeshGradientCore.js     # Core controller
+│   │   ├── MeshGradientData.js     # Data management
+│   │   ├── MeshGradientRenderer.js # Rendering logic
+│   │   └── HueAnimator.js         # Hue animation
+│   ├── distortion/
+│   │   ├── distortionManager.js    # Distortion orchestration
+│   │   ├── polar.js                # Polar/spiral distortion
+│   │   ├── ripple.js              # Ripple effect
+│   │   ├── wave.js                # Wave distortion
+│   │   ├── twist.js              # Twisting effect
+│   │   ├── bulge.js              # Bulge/pinch effect
+│   │   └── barrel.js             # Barrel/fisheye distortion
+│   ├── colorPalette.js            # Color generation
+│   ├── voronoi.js                 # Voronoi diagram generation
+│   ├── ui.js                      # UI event handlers
+│   ├── animationControls.js       # Cell animation UI 
+│   ├── hueAnimationControls.js    # Hue animation UI
+│   └── themeManager.js            # Light/dark theme switching
+└── Documentaions/
+    ├── app-overview.md            # This file
+    ├── mesh-gradient-animation-system.md
+    ├── mesh-gradient-color-management.md
+    ├── mesh-gradient-hue-animation.md
+    └── distortion-effects.md
 ```
 
-## Key Components
+## 10. Technical Challenges and Solutions
 
-### Gradient Engine
+### 10.1 Performance Optimization
 
-The core functionality that generates and manipulates mesh gradients, implemented as a service with a clean API for the UI components to consume.
+- **Off-screen Rendering**: Two-step rendering with offscreen canvas
+- **Mobile Detection**: Adaptive quality based on device capabilities 
+- **Batch Operations**: Minimizing redraws and recalculations
+- **Time-based Animation**: Consistent visual results at varying frame rates
 
-### Component Library
+### 10.2 Color State Management
 
-A set of reusable components designed for gradient creation, manipulation, and display:
+- **Color Preservation**: Strategic handling of when to regenerate colors
+- **Multiple Animation Systems**: Coordinating position and color animations
+- **Event-based Updates**: Ensuring UI shows current color state
 
-- `GradientCanvas`: The main rendering component
-- `ColorPicker`: Interface for selecting colors
-- `ControlPanel`: User controls for gradient manipulation
-- `PresetLibrary`: Saved gradient configurations
+### 10.3 Canvas Interactions
 
-## Data Flow
+- **Edit Mode**: Direct manipulation of Voronoi cells
+- **Hover States**: Visual feedback for interactive elements
+- **UI Controls**: Custom UI elements drawn directly on canvas
 
-```
-┌──────────┐    ┌───────────────┐    ┌────────────┐
-│  User    │ -> │ UI Components │ -> │   Store    │
-│  Input   │    │               │    │            │
-└──────────┘    └───────────────┘    └────────────┘
-                  ^                  |
-                  |                  v
-                  |            ┌────────────┐
-                  └────────────┤  Renderer  │
-                            │            │
-                            └────────────┘
-```
+### 10.4 Cross-browser Compatibility
 
-1. User interactions are captured by UI components
-2. State changes are managed through the store
-3. The renderer updates the visual output based on state
+- **Fallback Implementations**: For browsers with limited canvas support
+- **Feature Detection**: Adapting to available capabilities
+- **Polyfills**: Where necessary for consistent behavior
 
-## Integration Points
+## 11. Future Development Areas
 
-- **File System**: For saving and loading gradient presets
-- **Export Services**: For exporting gradients in various formats (SVG, PNG, CSS)
-- **Community Features**: For sharing and discovering gradients (if applicable)
-
-## Build and Deployment
-
-The application uses a modern build pipeline:
-
-1. Source code is managed in GitHub
-2. CI/CD pipeline runs tests and builds the application
-3. Deployment targets include web platforms and potentially desktop via Electron
-
-## Performance Considerations
-
-- WebGL acceleration for complex gradient rendering
-- Memoization and optimized re-renders for UI components
-- Efficient state management to minimize unnecessary updates
-
-## Additional Resources
-
-For detailed information on specific areas, refer to the following documentation:
-
-- Component API Documentation
-- Gradient Algorithm Details
-- State Management Design
-- Testing Strategy
+- **WebGL Rendering**: GPU acceleration for distortions
+- **Animation Presets**: Library of common animation patterns
+- **Export Options**: Additional format support
+- **Performance Optimization**: Further improvements for complex gradients
 
 ---
 
-*Note: This is a high-level overview of the Mesh Gradient project. For detailed implementation specifics, refer to the dedicated documentation for each aspect of the system.*
+*For detailed information on specific components, please refer to the corresponding documentation files.*
