@@ -607,4 +607,24 @@ class MeshGradientData {
         // Default fallback
         return { h: 0, s: 0, l: 50, hex: '#808080' };
     }
+
+    /**
+     * Get cell color
+     * @param {Number} cellIndex - Cell index
+     * @returns {Object} - Color object with hex and HSL values
+     */
+    getCellColor(cellIndex) {
+        // First check for explicit cell color (highest priority)
+        if (this.cellColors && this.cellColors[cellIndex]) {
+            return this.cellColors[cellIndex];
+        }
+        
+        // Then check currentColors (which may be from hue animation)
+        if (this.currentColors && this.currentColors[cellIndex]) {
+            return this.currentColors[cellIndex];
+        }
+        
+        // Generate fallback color using modulo operation to ensure we have something
+        return this.colorPalette.generateColor(cellIndex % 5);
+    }
 }

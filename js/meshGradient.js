@@ -116,3 +116,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start initialization process
     setTimeout(initColorTracking, 300);
 });
+
+// MeshGradient.js - API wrapper for MeshGradient
+
+// Establish namespace and expose public functions
+(function() {
+    // ...existing code...
+    
+    // Expose public functions for hue animation
+    window.meshGradient.toggleHueAnimation = function(enabled) {
+        return meshCore.toggleHueAnimation(enabled);
+    };
+    
+    window.meshGradient.startHueAnimation = function() {
+        return meshCore.startHueAnimation();
+    };
+    
+    window.meshGradient.stopHueAnimation = function() {
+        return meshCore.stopHueAnimation();
+    };
+    
+    window.meshGradient.setHueAnimationParams = function(params) {
+        return meshCore.setHueAnimationParams(params);
+    };
+    
+    // ...existing code...
+})();

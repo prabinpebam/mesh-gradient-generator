@@ -31,6 +31,9 @@ class MeshGradientCore {
 
         // Add a reliable color tracking system
         this._colorTrackingInitialized = false;
+
+        // Initialize animation objects
+        this.hueAnimator = null;
     }
     
     /**
@@ -113,6 +116,10 @@ class MeshGradientCore {
                 detail: { colors: this.data.currentColors }
             });
             document.dispatchEvent(colorsChangedEvent);
+        } else if (colors) {
+            // If preserveColors=true but colors are provided, use them
+            // This is crucial for animations that modify colors without regenerating
+            this.data.currentColors = colors;
         }
         
         // Draw cells to offscreen canvas
@@ -853,5 +860,73 @@ class MeshGradientCore {
     setBaseColor(hexColor) {
         if (!this.data) return;
         this.data.baseColor = hexColor;
+    }
+
+    /**
+     * Initialize hue animation
+     */
+    initHueAnimation() {
+        if (!this.hueAnimator) {
+            this.hueAnimator = new HueAnimator(this);
+            console.log('[Core] Hue animator initialized');
+        }
+        return this.hueAnimator;
+    }
+    
+    /**
+     * Start hue animation
+     */
+    startHueAnimation() {
+        if (!this.hueAnimator) {
+            this.initHueAnimation();
+        }
+        
+        return this.hueAnimator.start();
+    }
+    
+    /**
+     * Stop hue animation
+     */
+    stopHueAnimation() {
+        if (this.hueAnimator) {
+            return this.hueAnimator.stop();
+        }
+        return false;
+    }
+    
+    /**
+     * Toggle hue animation
+     * @param {Boolean} enabled - Whether hue animation should be enabled
+     */
+    toggleHueAnimation(enabled) {
+        if (enabled === undefined) {
+            enabled = !this.hueAnimator?.active;
+        }
+        
+        if (enabled) {
+            return this.startHueAnimation();
+        } else {
+            return this.stopHueAnimation();
+        }
+    }
+    
+    /**
+     * Set hue animation parameters
+     * @param {Object} params - Parameters object
+     */
+    setHueAnimationParams(params) {
+        if (!this.hueAnimator) {
+            this.initHueAnimation();
+        }
+        
+        if (params.speed !== undefined) {
+            this.hueAnimator.setSpeed(params.speed);
+        }
+        
+        if (params.direction !== undefined) {
+            this.hueAnimator.setDirection(params.direction);
+        }
+        
+        return true;
     }
 }
