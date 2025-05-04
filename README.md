@@ -2,8 +2,6 @@
 
 A powerful web application for creating beautiful, customizable mesh gradients using Voronoi diagrams. Create unique gradients for your design projects with an intuitive interface that offers extensive customization options.
 
-![Mesh Gradient Generator Preview](screenshots/preview.png)
-
 ## Features
 
 - **Canvas Size Control**: Customize the dimensions of your gradient canvas
@@ -21,6 +19,10 @@ A powerful web application for creating beautiful, customizable mesh gradients u
 - **Color Adjustments**:
   - Hue, Saturation, and Lightness controls
   - Color swatch palette
+- **Animation Systems**:
+  - **Cell Animation**: Physics-based movement with adjustable parameters
+  - **Hue Animation**: Dynamic color cycling with speed and direction controls
+  - Both animations can work simultaneously for complex effects
 - **Distortion Effects**:
   - Polar/Swirl, Ripple, Wave
   - Twist, Bulge/Pinch, Barrel/Fisheye
@@ -51,7 +53,15 @@ A powerful web application for creating beautiful, customizable mesh gradients u
    - Select color harmony and theme options
    - Apply distortion effects as desired
 3. **Edit Mode**: Toggle Edit Mode to manually adjust individual cell colors
-4. **Export**: Click "Export as PNG" to save your creation
+4. **Animate Your Gradient**:
+   - **Cell Animation**: Enable cell movement with physics-based controls
+     - Adjust force strength, damping, and maximum speed
+     - Watch cells organically move across the canvas
+   - **Hue Animation**: Enable color cycling through the hue spectrum
+     - Control animation speed (degrees per second)
+     - Set direction (clockwise or counter-clockwise)
+     - Works with color-locked cells and custom color settings
+5. **Export**: Click "Export as PNG" to save your creation
 
 ## Technologies Used
 

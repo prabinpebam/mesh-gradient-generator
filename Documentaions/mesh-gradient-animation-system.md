@@ -1,21 +1,22 @@
 # Mesh Gradient Animation System
 
-This document provides a comprehensive overview of how cell animation works in the Mesh Gradient system, detailing the initialization, control flow, update cycle, and parameter effects.
+This document provides a comprehensive overview of how animation works in the Mesh Gradient system, detailing the initialization, control flow, update cycle, and parameter effects for both cell position and hue animations.
 
 ## 1. Animation Architecture Overview
 
 ### 1.1 Core Animation Components
 
-- **Animation State**: Stored in `core.animation` object
-- **Animation Parameters**: Controls behavior like force, speed, and damping
-- **Animation Loop**: Runs via `requestAnimationFrame`
+- **Cell Animation State**: Stored in `core.animation` object
+- **Hue Animation State**: Stored in `core.hueAnimator` object
+- **Animation Parameters**: Controls behavior like force, speed, damping, and hue rotation
+- **Animation Loop**: Each animation system runs via independent `requestAnimationFrame` loops
 - **Position Updating**: Cell positions updated continuously with physics model
-- **Target Selection**: Cells move toward semi-random targets in sequence
+- **Color Updating**: Hue values cycled continuously based on time elapsed
 
 ### 1.2 Animation Data Model
 
 ```javascript
-// Core animation state object
+// Core animation state object (cell animation)
 animation = {
   active: false,              // Whether animation is currently running
   frameId: null,              // Current animation frame ID for cancellation
@@ -39,9 +40,21 @@ animation = {
     // ...more sites
   ]
 }
+
+// Hue animation state object
+hueAnimator = {
+  active: false,              // Whether hue animation is running
+  frameId: null,              // Animation frame ID for cancellation
+  startTime: 1621500000000,   // Timestamp when animation started
+  baseColors: [],             // Original colors captured at start
+  speed: 15,                  // Degrees per second (default)
+  direction: true             // true=clockwise, false=counter-clockwise
+}
 ```
 
 ## 2. Animation Initialization Flow
+
+### 2.1 Cell Animation Initialization
 
 ```
 ┌─────────────────┐      ┌─────────────────┐     ┌─────────────────────┐

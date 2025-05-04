@@ -1,13 +1,13 @@
 # Mesh Gradient Hue Animation
 
-This document outlines the implementation plan for adding a hue animation feature to the Mesh Gradient system. This feature will allow colors in the gradient to shift their hue values over time while maintaining their relative relationships.
+This document outlines the implementation of the hue animation feature in the Mesh Gradient system. This feature allows colors in the gradient to shift their hue values over time while maintaining their relative relationships.
 
 ## 1. Goals and Requirements
 
 ### 1.1 Core Functionality
 - Animate the hue of all colors in the canvas at a configurable rate
 - Maintain the relative hue differences between colors during animation
-- Support adjustable animation speed
+- Support adjustable animation speed (5-60 degrees per second)
 - Support bidirectional hue rotation (clockwise/counterclockwise)
 - Operate at an appropriate frame rate for smooth transitions
 - Work both independently and alongside cell position animation
@@ -17,31 +17,43 @@ This document outlines the implementation plan for adding a hue animation featur
 - Respect locked colors (which should not animate)
 - Maintain expected UI behaviors during animation (hovering, editing, etc.)
 - Ensure proper state management when starting/stopping animation
+- Allow continuation of animation after explicit color changes
+- Handle cell count changes during active animation
 
 ## 2. System Architecture
 
 ### 2.1 HueAnimator Module Design
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      HueAnimator                            │
-├─────────────────────────────────────────────────────────────┤
-│ Properties:                                                 │
-│  • active: boolean                                          │
-│  • frameId: number                                          │
-│  • startTime: number                                        │
-│  • baseColors: Array<Color>                                 │
-│  • speed: number (degrees per second)                       │
-│  • direction: boolean (true=clockwise, false=counter)       │
-├─────────────────────────────────────────────────────────────┤
-│ Methods:                                                    │
-│  • start()                                                  │
-│  • stop()                                                   │
-│  • setSpeed(speed)                                          │
-│  • setDirection(clockwise)                                  │
-│  • animate(timestamp)                                       │
-│  • calculateHueAdjustedColors(elapsedTime)                  │
-└─────────────────────────────────────────────────────────────┘
+```javascript
+class HueAnimator {
+    constructor(core) {
+        this.core = core;              // Reference to MeshGradientCore
+        this.active = false;           // Whether animation is active
+        this.frameId = null;           // Animation frame ID
+        this.startTime = 0;            // Animation start timestamp
+        this.baseColors = [];          // Original colors to transform
+        this.speed = 15;               // Degrees per second
+        this.direction = true;         // true=clockwise, false=counter-clockwise
+    }
+
+    // Core animation methods
+    start() { ... }
+    stop() { ... }
+    animate(timestamp) { ... }
+    
+    // Color calculation methods
+    calculateHueAdjustedColors(elapsedTime) { ... }
+    getCurrentColors() { ... }
+    updateBaseColors() { ... }
+    
+    // Configuration methods
+    setSpeed(speed) { ... }
+    setDirection(clockwise) { ... }
+    
+    // Helper methods
+    verifyColorTracking() { ... }
+    hslToHex(h, s, l) { ... }
+}
 ```
 
 ### 2.2 Integration Points

@@ -1,12 +1,12 @@
-# Distortion Library – Concept & Integration Plan
+# Mesh Gradient Generator - Project Overview
 
-Add the controls in the same order the operations are performed in the mesh gradient generation.
-So the controls for the distortion should be a dropdown immediately before the generate new gradient button.
-One an item is selected from the dropdown, the corresponding controls are shown.
+This document provides a comprehensive overview of the Mesh Gradient Generator project, its architecture, components, and features.
 
+## 1. Project Architecture
 
+The Mesh Gradient Generator is a browser-based application that creates, manipulates, and animates Voronoi-based gradients. The project follows a modular architecture with these key components:
 
-## 1. Distortion Catalogue (Normalised)
+## 2. Distortion Catalogue (Normalised)
 
 | # | Name | Short Description | Core Parameters |
 |---|------|-------------------|-----------------|
@@ -55,7 +55,7 @@ distortion stage.
 
 ---
 
-## 2. Proposed Architecture in Current App
+## 3. Proposed Architecture in Current App
 
 ```
 MeshGradient (already renders to <canvas>)
@@ -93,7 +93,7 @@ js/
 
 ---
 
-## 3. Implementation Notes
+## 4. Implementation Notes
 
 * **Performance** – Canvas 2‑D per‑pixel loops are slow; acceptable for ≤1 MP at 30 FPS. Provide a “High‑Quality” toggle that runs distortion once and caches bitmap.
 * **Composability** – Distortions receive/get `u, v` in range `0‑1`, return new `u, v`.
@@ -102,7 +102,7 @@ js/
 
 ---
 
-## 4. Phase Plan
+## 5. Phase Plan
 
 1. **Phase 1 – Infrastructure (1 day)**
    * Off‑screen render in `MeshGradient`.
@@ -116,7 +116,7 @@ js/
 
 ---
 
-## 5. Edit‑Mode & Interaction (Distortion‑Aware)
+## 6. Edit‑Mode & Interaction (Distortion‑Aware)
 
 Problem  
 When a distortion is active the visual centre/border positions no longer match the original Voronoi sites.  
@@ -142,7 +142,7 @@ Implementation order
 
 ---
 
-## 6. Phase Plan
+## 7. Phase Plan
 
 1. **Phase 1 – Infrastructure (1 day)**
    * Off‑screen render in `MeshGradient`.
@@ -156,7 +156,7 @@ Implementation order
 
 ---
 
-## 7. Outstanding Questions
+## 8. Outstanding Questions
 
 * **Performance** of inverse mapping on each mouse‑move? → cache per‑distortion inverse maths; keep site count small.  
 * **Overlay antialiasing** when double‑sampling through distortions.  
