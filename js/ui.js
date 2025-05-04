@@ -1,3 +1,8 @@
+/**
+ * Legacy UI controller - this will gradually be replaced by the modular UI system
+ * For now, it initializes the modular system alongside the legacy code
+ */
+
 // Global meshGradient variable
 let meshGradient;
 
@@ -5,7 +10,7 @@ let meshGradient;
  * UI Controller for the Mesh Gradient Generator
  */
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('UI initializing...');
+    console.log('Legacy UI initializing...');
     
     // Add a small delay to ensure MeshGradient is fully initialized
     setTimeout(() => {
@@ -19,7 +24,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Create the MeshGradient instance first
         try {
             meshGradient = new MeshGradient();
-            initializeUI();
+            
+            // Initialize the modular UI system if the file is loaded
+            if (typeof window.meshGradientUI !== 'undefined') {
+                window.meshGradientUI.meshGradient = meshGradient;
+                window.meshGradientUI.initialize();
+                console.log("Initialized modular UI system");
+            } else {
+                console.log("Modular UI system not loaded, falling back to legacy UI");
+                initializeUI();
+            }
         } catch (error) {
             console.error('MeshGradient not found. Check script loading order.', error);
         }
@@ -686,7 +700,7 @@ function updateSwatches() {
      */
     function setupColorPickerStyles() {
       // Check if meshGradient exposes a method for styling hover controls
-      if (typeof meshGradient.setHoverControlStyles === 'function') {
+      if (meshGradient && typeof meshGradient.setHoverControlStyles === 'function') {
         // Apply styles through the API (handles all modes)
         meshGradient.setHoverControlStyles({
           buttonBgOpacity: 0.3,      // 30% opacity for background
@@ -710,145 +724,19 @@ function updateSwatches() {
         }
         console.log('Applied color picker styles via API for both hover and edit modes');
       } else {
-        // If no direct API exists, we need to patch the canvas rendering directly
-        patchCanvasHoverControls();
+        // Skip styling if the API doesn't exist - this is safer
+        console.log('Color picker styling API not available, using default styles');
       }
     }
 
-    // Enhanced helper function to patch the canvas drawing for both modes
-    function patchCanvasHoverControls() {
-      if (!window._colorPickerStylesPatched) {
-        window._colorPickerStylesPatched = true;
-        
-        // Find all possible render functions - including specific edit mode renderers
-        const renderFunctions = [
-          // Hover mode renderers
-          meshGradient.renderHoverControls,
-          meshGradient.renderer?.renderHoverControls,
-          meshGradient._renderHoverControls,
-          
-          // Edit mode renderers
-          meshGradient.renderEditControls,
-          meshGradient.renderer?.renderEditControls,
-          meshGradient._renderEditControls,
-          
-          // Generic render controls that might handle both modes
-          meshGradient.renderControls,
-          meshGradient.renderer?.renderControls
-        ].filter(Boolean);
-        
-        console.log(`Found ${renderFunctions.length} render functions to patch for hover/edit controls`);
-        
-        // Patch all found render functions
-        renderFunctions.forEach(originalRender => {
-          const patchedRender = function(...args) {
-            // Call original rendering first
-            const result = originalRender.apply(this, args);
-            
-            // If we have access to the canvas context, apply our styles
-            if (args[0] && args[0].globalAlpha !== undefined) {
-              const ctx = args[0];
-              const controlsInfo = args[1] || {};
-              
-              // Save original state
-              ctx.save();
-              
-              // Apply our styles
-              ctx.globalAlpha = 0.3;  // 30% opacity for background
-              ctx.lineWidth = 2;      // 2px border width
-              
-              // Set explicit fill color for pill background
-              const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-              ctx.fillStyle = isDarkMode ? '#000000' : '#FFFFFF';
-              
-              // Check various possible path properties that might be used
-              const paths = [
-                // Direct paths from info object
-                controlsInfo.colorButtonPath,
-                controlsInfo.pillPath,
-                controlsInfo.editColorButtonPath,
-                controlsInfo.editPillPath,
-                
-                // Stored paths on context (common pattern)
-                ctx._lastColorButtonPath,
-                ctx._lastPillPath,
-                ctx._lastEditColorButtonPath,
-                ctx._lastEditPillPath,
-                
-                // Stored on this/meshGradient
-                this?.currentColorButtonPath,
-                this?.currentPillPath,
-                meshGradient?.currentColorButtonPath,
-                meshGradient?.currentPillPath
-              ].filter(Boolean);
-              
-              // Re-render each path found with our custom styles
-              paths.forEach(path => {
-                if (path) {
-                  ctx.fill(path);
-                  ctx.stroke(path);
-                }
-              });
-              
-              // Restore original context state
-              ctx.restore();
-            }
-            
-            return result;
-          };
-          
-          // Replace the original function
-          if (meshGradient.renderHoverControls === originalRender) {
-            meshGradient.renderHoverControls = patchedRender;
-          } else if (meshGradient.renderer?.renderHoverControls === originalRender) {
-            meshGradient.renderer.renderHoverControls = patchedRender;
-          } else if (meshGradient._renderHoverControls === originalRender) {
-            meshGradient._renderHoverControls = patchedRender;
-          } else if (meshGradient.renderEditControls === originalRender) {
-            meshGradient.renderEditControls = patchedRender;
-          } else if (meshGradient.renderer?.renderEditControls === originalRender) {
-            meshGradient.renderer.renderEditControls = patchedRender;
-          } else if (meshGradient._renderEditControls === originalRender) {
-            meshGradient._renderEditControls = patchedRender;
-          } else if (meshGradient.renderControls === originalRender) {
-            meshGradient.renderControls = patchedRender;
-          } else if (meshGradient.renderer?.renderControls === originalRender) {
-            meshGradient.renderer.renderControls = patchedRender;
-          }
-        });
-        
-        // Patch the edit mode toggle to ensure styles are applied when switching modes
-        const originalSetEditMode = meshGradient.setEditMode;
-        if (typeof originalSetEditMode === 'function') {
-          meshGradient.setEditMode = function(enabled) {
-            const result = originalSetEditMode.apply(this, [enabled]);
-            // Apply our styles whenever edit mode changes
-            setupColorPickerStyles();
-            return result;
-          };
-        }
-        
-        // Patch the main render method to ensure our styles are always applied
-        if (meshGradient.render) {
-          const originalRender = meshGradient.render;
-          meshGradient.render = function(...args) {
-            const result = originalRender.apply(this, args);
-            
-            // Force any hover/edit controls to be re-rendered with our styles
-            if (this.hoverControls || this.editMode) {
-              setupColorPickerStyles();
-            }
-            return result;
-          };
-        }
-        
-        console.log('Enhanced canvas hover/edit controls styling with improved patching');
-      }
+    // Safely try to set up color picker styles
+    try {
+      setupColorPickerStyles();
+    } catch (err) {
+      console.warn("Could not set up color picker styles:", err);
     }
     
-    // Try to set up the color picker styles
-    setupColorPickerStyles();
-    
+    // Rest of the updateSwatches function...
     // Get all unique colors from the gradient
     const uniqueColors = [];
     
