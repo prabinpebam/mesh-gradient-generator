@@ -93,14 +93,15 @@ class MeshGradientCore {
     /**
      * Render the gradient on the canvas
      * @param {Array} colors - Optional array of colors
-     * @param {Boolean} preserveColors - If true, don't regenerate colors (for hover/drag)
+     * @param {Boolean} preserveColors - If true, don't regenerate colors (default: true for most operations)
+     * @param {Object} options - Additional render options
      */
-    render(colors = null, preserveColors = false) {
+    render(colors = null, preserveColors = true, options = {}) {
         // Clear offscreen canvas
         this.offCtx.clearRect(0, 0, this.width, this.height);
         
         // Get data and render
-        const cells = this.data.voronoi.getCells();
+        const cells = this.data.voronoi.getCells(this.animation?.active);
         const sites = this.data.voronoi.sites;
         
         // Process colors only if not preserving colors (hover/drag should preserve)
@@ -136,6 +137,18 @@ class MeshGradientCore {
         
         // Handle UI drawing based on edit mode and hover state
         this.renderer.drawUI(cells, sites, this.data);
+        
+        // Dispatch meshColorsAvailable event for color tracking
+        if (this._colorTrackingInitialized) {
+            const colorsAvailableEvent = new CustomEvent('meshColorsAvailable', {
+                detail: { 
+                    colors: this.getAllColors(),
+                    cellCount: this.getCellCount(),
+                    timestamp: new Date().toISOString()
+                }
+            });
+            document.dispatchEvent(colorsAvailableEvent);
+        }
     }
     
     /**
@@ -148,10 +161,12 @@ class MeshGradientCore {
     /**
      * Toggle edit mode
      * @param {Boolean} enabled - Whether edit mode is enabled
+     * @param {Boolean} preserveState - Whether to preserve the current state (default: true)
      */
-    setEditMode(enabled) {
+    setEditMode(enabled, preserveState = true) {
         this.editMode = enabled;
-        this.render();
+        // Always preserve colors by passing true to render
+        this.render(null, true);
         
         if (enabled) {
             document.body.classList.add('edit-mode');
@@ -172,11 +187,27 @@ class MeshGradientCore {
         }
     }
     
+    /**
+     * Handle dragging with animation compatibility
+     * @param {Number} x - Mouse X position
+     * @param {Number} y - Mouse Y position
+     */
     drag(x, y) {
         if (this.dragSiteIndex === -1) return;
         
+        // Move the site
         this.data.voronoi.moveSite(this.dragSiteIndex, x, y);
-        // Pass true to preserve colors during drag
+        
+        // If we're dragging during animation, update animation properties
+        if (this.animation && this.animation.active && this.dragSiteIndex !== -1) {
+            // Reset velocity when manually dragged
+            if (this.animation.sites && this.animation.sites[this.dragSiteIndex]) {
+                this.animation.sites[this.dragSiteIndex].vx = 0;
+                this.animation.sites[this.dragSiteIndex].vy = 0;
+            }
+        }
+        
+        // Always preserve colors during drag
         this.render(null, true);
     }
     
@@ -211,6 +242,7 @@ class MeshGradientCore {
             this.animation = {
                 active: false,
                 frameId: null,
+                originalColors: null,
                 params: {
                     forceStrength: 0.12,
                     damping: 0.92,
@@ -234,25 +266,45 @@ class MeshGradientCore {
         return this.animation;
     }
     
-    // Initialize per-site animation properties
+    /**
+     * Initialize per-site animation properties
+     * Robust implementation that works with changing cell counts
+     */
     initAnimationProperties() {
         if (!this.animation) this.initAnimation();
         
         if (this.data && this.data.voronoi && this.data.voronoi.sites) {
             const sites = this.data.voronoi.sites;
+            console.log(`[ANIMATION] Initializing animation for ${sites.length} cells`);
+            
+            // Store original colors if not already stored
+            if (typeof this.getAllColors === 'function' && !this.animation.originalColors) {
+                this.animation.originalColors = this.getAllColors();
+            }
+            
+            // (Re)create animation properties array for all current sites
             this.animation.sites = sites.map((site, index) => {
+                // Preserve existing properties if possible to avoid jumps
+                const existing = this.animation.sites && this.animation.sites[index];
                 return {
-                    vx: 0,
-                    vy: 0,
-                    wanderAngle: Math.random() * 2 * Math.PI,
-                    targetIndex: Math.floor(Math.random() * 1000) + 1,
-                    lastTargetAngle: null
+                    vx: existing ? existing.vx : 0,
+                    vy: existing ? existing.vy : 0,
+                    wanderAngle: existing ? existing.wanderAngle : Math.random() * 2 * Math.PI,
+                    targetIndex: existing ? existing.targetIndex : Math.floor(Math.random() * 1000) + 1,
+                    lastTargetAngle: existing ? existing.lastTargetAngle : null
                 };
             });
+            
+            console.log(`[ANIMATION] Initialized ${this.animation.sites.length} animation properties`);
+            this.animation.initialized = true;
+        } else {
+            console.error("[ANIMATION] No sites available for animation initialization");
         }
     }
     
-    // Helper: Calculate Halton sequence
+    /**
+     * Helper: Calculate Halton sequence
+     */
     halton(i, b) {
         let res = 0, f = 1 / b;
         while (i > 0) {
@@ -263,22 +315,28 @@ class MeshGradientCore {
         return res;
     }
     
-    // Helper: Calculate angle between two angles
+    /**
+     * Helper: Calculate angle between two angles
+     */
     angleBetween(a1, a2) {
         let d = a1 - a2;
         d = (d + Math.PI) % (2 * Math.PI) - Math.PI;
         return Math.abs(d);
     }
     
-    // Start animation
+    /**
+     * Start cell animation with proper initialization
+     */
     startCellAnimation() {
+        // Ensure animation is properly initialized
         if (!this.animation) this.initAnimation();
+        if (!this.animation.sites) this.initAnimationProperties();
         
-        if (this.animation.active) return; // Already running
+        if (this.animation.active) return true; // Already running
         this.animation.active = true;
         
-        // Don't capture colors here anymore - we'll get colors dynamically
-        // to allow hue animation to work alongside cell animation
+        // Capture original colors to preserve during animation
+        this.animation.originalColors = this.getAllColors();
         
         // Disable edit mode during animation
         const wasEditMode = this.editMode;
@@ -293,17 +351,21 @@ class MeshGradientCore {
             const deltaTime = timestamp - lastFrameTime;
             lastFrameTime = timestamp;
             
+            // Ensure animation properties are in sync with current cell count
+            if (this.data && this.data.voronoi && this.data.voronoi.sites && 
+                (!this.animation.sites || this.data.voronoi.sites.length !== this.animation.sites.length)) {
+                this.initAnimationProperties();
+            }
+            
             // Update positions
             this.updateAnimationStep(deltaTime);
             
             // Get current colors - allow hue animation to provide them if active
-            let currentColors = null;
+            let currentColors = this.animation.originalColors;
             
             // Get colors from hue animator if active
             if (this.hueAnimator && this.hueAnimator.active) {
-                // Let hue animator calculate current colors - pass true to get colors without rendering
                 currentColors = this.hueAnimator.getCurrentColors();
-                console.log("[ANIMATION] Using hue-adjusted colors");
             }
             
             // Render with appropriate colors - always preserveColors=true
@@ -341,27 +403,14 @@ class MeshGradientCore {
         return true;
     }
     
-    // Update animation for one step
+    /**
+     * Update animation step with improved Voronoi handling
+     * @param {Number} deltaTime - Time elapsed since last frame in milliseconds
+     */
     updateAnimationStep(deltaTime) {
         // Check for valid animation state
-        if (!this.animation || !this.animation.active) {
+        if (!this.animation || !this.animation.active || !this.animation.sites) {
             return false;
-        }
-        
-        // CRITICAL FIX: Ensure animation.sites exists and matches current cell count
-        if (!this.animation.sites || 
-            !this.data || 
-            !this.data.voronoi || 
-            !this.data.voronoi.sites ||
-            this.data.voronoi.sites.length !== this.animation.sites.length) {
-            
-            console.log("[ANIMATION] Cell count mismatch detected in updateAnimationStep, reinitializing");
-            this.initAnimationProperties();
-            
-            // If still no sites, give up
-            if (!this.animation.sites || this.animation.sites.length === 0) {
-                return false;
-            }
         }
         
         // Scale time step to achieve consistent speed
@@ -371,32 +420,26 @@ class MeshGradientCore {
         const W = this.width;
         const H = this.height;
         
-        // Additional check for site count
-        if (Math.random() < 0.01) { // ~1% of frames
-            console.log(`[ANIMATION] Animating ${sites.length} cells (animation sites: ${this.animation.sites.length})`);
+        // CRITICAL FIX: Ensure animation.sites exists and matches current cell count
+        if (!this.animation.sites || sites.length !== this.animation.sites.length) {
+            this.initAnimationProperties();
         }
         
         let anyMovement = false;
+        let maxMovementDist = 0;
+        let maxMovementIndex = -1;
         
         // Update every site position
         for (let i = 0; i < sites.length; i++) {
-            // CRITICAL FIX: Ensure animation properties exist for this site
-            if (!this.animation.sites[i]) {
-                console.log(`[ANIMATION] Missing animation properties for site ${i}, creating...`);
-                this.animation.sites[i] = {
-                    vx: 0,
-                    vy: 0,
-                    wanderAngle: Math.random() * 2 * Math.PI,
-                    targetIndex: Math.floor(Math.random() * 1000) + 1,
-                    lastTargetAngle: null
-                };
-            }
+            const site = sites[i];
+            const animProps = this.animation.sites[i];
+            
+            // Skip if animation properties not available
+            if (!animProps) continue;
             
             // Store original position for tracking movement
             const origX = site[0];
             const origY = site[1];
-            
-            // ...existing cell animation physics logic...
             
             // Vector to current target
             let tx = this.halton(animProps.targetIndex, 2) * W;
@@ -407,17 +450,17 @@ class MeshGradientCore {
             
             // On arrival → pick next target respecting minTurnAngle
             if (dist < params.arrivalThres) {
-                // ...existing target selection logic...
-                
+                // Get current angle
                 const oldAngle = animProps.lastTargetAngle != null
                     ? animProps.lastTargetAngle
                     : Math.atan2(dy, dx);
                     
+                // Try to find a new target that creates a significant turn
                 let attempts = 0, chosen = animProps.targetIndex;
                 while (attempts < 10) {
                     chosen++;
                     const cx = this.halton(chosen, 2) * W - site[0];
-                    const cy = this.halton(chosen, 3) * H - site[1];
+                    const cy = this.halton(chosen, 3) * H - site[0];
                     const newAngle = Math.atan2(cy, cx);
                     
                     if (animProps.lastTargetAngle === null || 
@@ -429,6 +472,7 @@ class MeshGradientCore {
                     attempts++;
                 }
                 
+                // If we couldn't find a good target, use the last one tried
                 if (attempts === 10) {
                     animProps.targetIndex = chosen;
                     animProps.lastTargetAngle = Math.atan2(
@@ -445,7 +489,7 @@ class MeshGradientCore {
                 dist = Math.hypot(dx, dy);
             }
             
-            // Wander force
+            // Wander force calculation
             animProps.wanderAngle += (Math.random() * 2 - 1) * params.wanderJitter;
             const wx = Math.cos(animProps.wanderAngle);
             const wy = Math.sin(animProps.wanderAngle);
@@ -454,87 +498,59 @@ class MeshGradientCore {
             const ax = dx / (dist || 1);
             const ay = dy / (dist || 1);
             
-            // Blend & normalize
+            // Blend & normalize forces
             let sx = ax * (1 - params.wanderWeight) + wx * params.wanderWeight;
             let sy = ay * (1 - params.wanderWeight) + wy * params.wanderWeight;
             const sl = Math.hypot(sx, sy) || 1;
             sx /= sl;
             sy /= sl;
             
-            // Apply thrust with time scaling
+            // Apply force with time scaling
             animProps.vx += sx * params.forceStrength * timeStep;
             animProps.vy += sy * params.forceStrength * timeStep;
             
-            // Damping & cap
+            // Apply damping
             animProps.vx *= params.damping;
             animProps.vy *= params.damping;
+            
+            // Cap speed
             const sp = Math.hypot(animProps.vx, animProps.vy);
             if (sp > params.maxSpeed) {
                 animProps.vx = (animProps.vx / sp) * params.maxSpeed;
                 animProps.vy = (animProps.vy / sp) * params.maxSpeed;
             }
             
-            // Move & clamp
-            const padding = 20; // Keep away from edges
-            site[0] = Math.min(Math.max(site[0] + animProps.vx * timeStep, padding), W - padding);
-            site[1] = Math.min(Math.max(site[1] + animProps.vy * timeStep, padding), H - padding);
+            // Calculate new position with boundary constraints
+            const padding = 20; // Keep cells away from the edges
+            const newX = Math.min(Math.max(site[0] + animProps.vx * timeStep, padding), W - padding);
+            const newY = Math.min(Math.max(site[1] + animProps.vy * timeStep, padding), H - padding);
             
-            // Track movement for logging
-            const moveX = site[0] - origX;
-            const moveY = site[1] - origY;
-            const moveDist = Math.sqrt(moveX*moveX + moveY*moveY);
+            // Only update if there's significant movement
+            const moveX = newX - origX;
+            const moveY = newY - origY;
+            const moveDist = Math.hypot(moveX, moveY);
             
-            if (moveDist > maxMovementDist) {
-                maxMovementDist = moveDist;
-                maxMovementIndex = i;
-            }
-            
-            if (moveDist > 0.001) {
+            if (moveDist > 0.1) { // Threshold to avoid tiny updates
+                // Use proper site movement to update the Voronoi diagram
+                if (typeof this.data.voronoi.moveSite === 'function') {
+                    this.data.voronoi.moveSite(i, newX, newY);
+                } else {
+                    // Direct update as fallback
+                    site[0] = newX;
+                    site[1] = newY;
+                }
                 anyMovement = true;
                 
-                // Log direct position changes for first cell
-                if (i === 0 && Math.random() < 0.05) {
-                    console.log(`[POSITION] Cell 0 moved: [${origX.toFixed(2)},${origY.toFixed(2)}] → [${site[0].toFixed(2)},${site[1].toFixed(2)}], delta: ${moveDist.toFixed(4)}`);
+                if (moveDist > maxMovementDist) {
+                    maxMovementDist = moveDist;
+                    maxMovementIndex = i;
                 }
             }
         }
         
-        // Log max movement
-        if (anyMovement && Math.random() < 0.02) {
-            console.log(`[ANIMATION] Max movement: Cell ${maxMovementIndex} moved ${maxMovementDist.toFixed(4)}px`);
-        }
-        
-        // Fix: Force Voronoi diagram update
-        if (anyMovement) {
-            try {
-                // Update the Voronoi diagram with new cell positions
-                if (this.data && this.data.voronoi) {
-                    // Trigger a recalculation if possible 
-                    if (typeof this.data.voronoi.getCells === 'function') {
-                        console.log("[ANIMATION] Forcing Voronoi recalculation");
-                        this.data.voronoi.getCells(true); // Force recalculation
-                    }
-                    
-                    // Update the Delaunay triangulation if possible
-                    if (this.data.voronoi.delaunay && 
-                        typeof this.data.voronoi.delaunay.update === 'function') {
-                        this.data.voronoi.delaunay.update();
-                    }
-                }
-                
-                // Get colors to preserve
-                let currentColors = null;
-                if (typeof this.getAllColors === 'function') {
-                    currentColors = this.getAllColors();
-                }
-                
-                // Force a render with preserveColors=true
-                if (typeof this.render === 'function') {
-                    this.render(currentColors, true);
-                }
-            } catch (err) {
-                console.error("[ANIMATION] Error updating Voronoi:", err);
-            }
+        // Force Voronoi recalculation if there was movement
+        if (anyMovement && typeof this.data.voronoi.getCells === 'function') {
+            this.data.voronoi.getCells(true); // Force recalculation
         }
         
         return anyMovement;
@@ -635,23 +651,38 @@ class MeshGradientCore {
         // When changing cell count while hue animation is active, 
         // we need to pause and restart the animation to capture the new cells
         const hueAnimWasActive = this.hueAnimator && this.hueAnimator.active;
+        const cellAnimWasActive = this.animation && this.animation.active;
         
-        // Temporarily stop hue animation if it's running
+        // Temporarily stop animations if running
         if (hueAnimWasActive) {
-            console.log("[CELL COUNT] Temporarily stopping hue animation");
             this.stopHueAnimation();
         }
         
-        // When changing cell count, regenerate the gradient without preserving colors
-        const result = this.data.setCellCount(count, () => this.render());
-        
-        // Restart hue animation if it was active
-        if (hueAnimWasActive) {
-            console.log("[CELL COUNT] Restarting hue animation with new cell count");
-            setTimeout(() => {
-                this.startHueAnimation();
-            }, 100); // Small delay to ensure render completes
+        if (cellAnimWasActive) {
+            this.stopCellAnimation();
         }
+        
+        // Change cell count
+        const result = this.data.setCellCount(count, () => {
+            // After count is changed, trigger a render
+            this.render();
+            
+            // Reinitialize animation properties for new cell count
+            if (this.animation) {
+                this.initAnimationProperties();
+            }
+        });
+        
+        // Restart animations if they were active
+        setTimeout(() => {
+            if (cellAnimWasActive) {
+                this.startCellAnimation();
+            }
+            
+            if (hueAnimWasActive) {
+                this.startHueAnimation();
+            }
+        }, 100); // Small delay to ensure render completes
         
         return result;
     }

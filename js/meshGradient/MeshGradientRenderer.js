@@ -7,20 +7,27 @@ class MeshGradientRenderer {
     }
     
     /**
-     * Draw cells to the specified canvas context
+     * Draw cells to the specified canvas context with enhanced animation support
      * @param {CanvasRenderingContext2D} ctx - Canvas context to draw on
      * @param {Array} cells - Array of cell objects
      * @param {MeshGradientData} data - Data module with color information
      */
     drawCellsToCanvas(ctx, cells, data) {
-        // Debug - log when cells are drawn during animation
-        if (this.core.animation && this.core.animation.active && Math.random() < 0.05) {
-            console.log(`[RENDERER] drawCellsToCanvas with ${cells.length} cells`);
-            if (cells[0]) {
-                console.log(`[RENDERER] First cell path: ${cells[0].path.substring(0, 40)}...`);
+        // Ensure cells reflect latest site positions during animation
+        if (this.core.animation && this.core.animation.active) {
+            // Check if we need to force cell recalculation
+            if (data && data.voronoi) {
+                // Get fresh cells with forced recalculation
+                cells = data.voronoi.getCells(true);
+                
+                // Update Delaunay triangulation if possible
+                if (data.voronoi.delaunay && typeof data.voronoi.delaunay.update === 'function') {
+                    data.voronoi.delaunay.update();
+                }
             }
         }
         
+        // Draw each cell with its color
         cells.forEach((cell, index) => {
             const color = data.getCellColor(index);
             ctx.beginPath();
@@ -141,7 +148,7 @@ class MeshGradientRenderer {
     }
     
     /**
-     * Draw UI elements based on mode
+     * Draw UI elements with animation optimization
      * @param {Array} cells - Array of cell objects
      * @param {Array} sites - Array of site coordinates
      * @param {MeshGradientData} data - Data module
@@ -149,6 +156,16 @@ class MeshGradientRenderer {
     drawUI(cells, sites, data) {
         const { editMode, hoverCellIndex, hoverControls } = this.core;
         
+        // Skip UI drawing during animation for better performance
+        if (this.core.animation && this.core.animation.active) {
+            // Clear any hover/selection state during animation
+            this.core.hoverControls = null;
+            this.core.hoveredButton = null;
+            this.core.canvas.style.cursor = 'default';
+            return;
+        }
+        
+        // Proceed with normal UI drawing
         // During animation, skip UI drawing to improve performance
         if (this.core.animation && this.core.animation.active) {
             // Log occasional debug info during animation
