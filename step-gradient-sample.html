@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gradient Modes Example</title>
+  <style>
+    body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 20px; }
+    #controls { margin-bottom: 10px; }
+    canvas { border: 1px solid #ccc; }
+    label { margin-left: 10px; }
+    input[type="number"] { width: 60px; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <select id="typeSelect">
+      <option value="linear">Linear</option>
+      <option value="radial">Radial</option>
+    </select>
+    <label><input type="checkbox" id="modeToggle"> Stepped</label>
+    <label>Step Contrast: <input type="number" id="contrastInput" min="1" max="360" value="20"></label>
+    <label><input type="checkbox" id="groupHue" checked> Group by Hue</label>
+    <label><input type="checkbox" id="groupSat"> Group by Saturation</label>
+    <label><input type="checkbox" id="groupLum"> Group by Luma</label>
+    <button id="generateBtn">Randomize Colors</button>
+  </div>
+  <canvas id="gradientCanvas" width="600" height="400"></canvas>
+  <script>
+    const canvas = document.getElementById('gradientCanvas');
+    const ctx = canvas.getContext('2d');
+    const typeSelect = document.getElementById('typeSelect');
+    const modeToggle = document.getElementById('modeToggle');
+    const contrastInput = document.getElementById('contrastInput');
+    const groupHue = document.getElementById('groupHue');
+    const groupSat = document.getElementById('groupSat');
+    const groupLum = document.getElementById('groupLum');
+    const generateBtn = document.getElementById('generateBtn');
+
+    let gradientParams = {};
+    let previousGradientParams = null;
+    const animationDuration = 1000;
+
+    function randomHue() { return Math.random() * 360; }
+
+    function initRandomParams() {
+      gradientParams = {
+        startHue: randomHue(),
+        endHue: randomHue(),
+        angle: Math.random() * Math.PI * 2,
+        centerX: Math.random() * canvas.width,
+        centerY: Math.random() * canvas.height
+      };
+      previousGradientParams = { ...gradientParams };
+    }
+
+    function randomizeHues() {
+      previousGradientParams = { ...gradientParams };
+      gradientParams.startHue = randomHue();
+      gradientParams.endHue = randomHue();
+      animateGradient();
+    }
+
+    function interpolate(start, end, t) {
+      return start + (end - start) * t;
+    }
+
+    function animateGradient() {
+      const start = performance.now();
+      function step(now) {
+        const elapsed = now - start;
+        const t = Math.min(1, elapsed / animationDuration);
+
+        const interpParams = {
+          startHue: interpolate(previousGradientParams.startHue, gradientParams.startHue, t),
+          endHue: interpolate(previousGradientParams.endHue, gradientParams.endHue, t),
+          angle: gradientParams.angle,
+          centerX: gradientParams.centerX,
+          centerY: gradientParams.centerY
+        };
+
+        drawGradient(interpParams);
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function drawGradient(params) {
+      const type = typeSelect.value;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (type === 'linear') drawLinearSmooth(params);
+      else drawRadialSmooth(params);
+      if (modeToggle.checked) {
+        const contrast = parseFloat(contrastInput.value) || 1;
+        applySteppedContrast(contrast, groupHue.checked, groupSat.checked, groupLum.checked);
+      }
+    }
+
+    function draw() { drawGradient(gradientParams); }
+
+    function drawLinearSmooth(params) {
+      const { startHue, endHue, angle } = params;
+      const x1 = canvas.width/2 - Math.cos(angle) * canvas.width;
+      const y1 = canvas.height/2 - Math.sin(angle) * canvas.height;
+      const x2 = canvas.width/2 + Math.cos(angle) * canvas.width;
+      const y2 = canvas.height/2 + Math.sin(angle) * canvas.height;
+      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      grad.addColorStop(0, `hsl(${startHue},70%,50%)`);
+      grad.addColorStop(1, `hsl(${endHue},70%,50%)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function drawRadialSmooth(params) {
+      const { startHue, endHue, centerX, centerY } = params;
+      const maxRadius = Math.hypot(canvas.width, canvas.height);
+      const grad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
+      grad.addColorStop(0, `hsl(${startHue},70%,50%)`);
+      grad.addColorStop(1, `hsl(${endHue},70%,50%)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function applySteppedContrast(contrast, useH, useS, useL) {
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+      const buckets = {};
+
+      const getKey = (h, s, l) => {
+        let key = [];
+        if (useH) key.push(Math.round(h / contrast));
+        if (useS) key.push(Math.round(s / (contrast / 100)));
+        if (useL) key.push(Math.round(l / (contrast / 100)));
+        return key.join('-');
+      };
+
+      const hslMap = {};
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i+1], b = data[i+2];
+        const [h, s, l] = rgbToHsl(r, g, b);
+        const key = getKey(h, s, l);
+        if (!buckets[key]) buckets[key] = [];
+        buckets[key].push([h, s, l, i]);
+      }
+
+      for (const key in buckets) {
+        const group = buckets[key];
+        const avg = group.reduce((acc, val) => {
+          acc[0] += val[0];
+          acc[1] += val[1];
+          acc[2] += val[2];
+          return acc;
+        }, [0,0,0]).map(v => v / group.length);
+        for (const [, , , idx] of group) {
+          const [r, g, b] = hslToRgb(avg[0], avg[1], avg[2]);
+          data[idx] = r;
+          data[idx+1] = g;
+          data[idx+2] = b;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+    }
+
+    function rgbToHsl(r, g, b) {
+      r /= 255, g /= 255, b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+
+      if (max === min) h = s = 0;
+      else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h *= 60;
+      }
+      return [h, s, l];
+    }
+
+    function hslToRgb(h, s, l) {
+      let r, g, b;
+      h /= 360;
+      if (s === 0) r = g = b = l;
+      else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [r * 255, g * 255, b * 255];
+    }
+
+    generateBtn.addEventListener('click', () => { randomizeHues(); });
+    typeSelect.addEventListener('change', draw);
+    modeToggle.addEventListener('change', draw);
+    contrastInput.addEventListener('input', draw);
+    groupHue.addEventListener('change', draw);
+    groupSat.addEventListener('change', draw);
+    groupLum.addEventListener('change', draw);
+
+    initRandomParams();
+    draw();
+  </script>
+</body>
+</html>

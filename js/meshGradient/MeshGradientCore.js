@@ -19,6 +19,9 @@ class MeshGradientCore {
         // Initialize sub-modules
         this.data = new MeshGradientData(this);
         this.renderer = new MeshGradientRenderer(this);
+
+        // NEW: stage scheduler
+        this.renderGraph = new RenderGraph(this);
         
         // Create off-screen canvas
         this.offCanvas = document.createElement('canvas');
@@ -97,57 +100,33 @@ class MeshGradientCore {
      * @param {Object} options - Additional render options
      */
     render(colors = null, preserveColors = true, options = {}) {
-        // Clear offscreen canvas
-        this.offCtx.clearRect(0, 0, this.width, this.height);
-        
-        // Get data and render
-        const cells = this.data.voronoi.getCells(this.animation?.active);
-        const sites = this.data.voronoi.sites;
-        
-        // Process colors only if not preserving colors (hover/drag should preserve)
+        // Handle colour-change event logic (unchanged)
         if (!preserveColors) {
-            if (!colors) {
-                colors = this.data.processColors();
-            } else {
-                this.data.currentColors = colors;
-            }
-            
-            // Notify color changes - only when colors actually change
-            const colorsChangedEvent = new CustomEvent('meshColorsChanged', {
+            if (!colors) colors = this.data.processColors();
+            else this.data.currentColors = colors;
+            document.dispatchEvent(new CustomEvent('meshColorsChanged', {
                 detail: { colors: this.data.currentColors }
-            });
-            document.dispatchEvent(colorsChangedEvent);
+            }));
         } else if (colors) {
-            // If preserveColors=true but colors are provided, use them
-            // This is crucial for animations that modify colors without regenerating
             this.data.currentColors = colors;
         }
-        
-        // Draw cells to offscreen canvas
-        this.renderer.drawCellsToCanvas(this.offCtx, cells, this.data);
-        
-        // Apply effects
-        if (this.data.blurAmount > 0) {
-            this.renderer.applyBlur(this.data.blurAmount);
-        }
-        
-        // Apply distortions and draw to main canvas
-        this.ctx.clearRect(0, 0, this.width, this.height);
-        this.data.distortions.apply(this.offCanvas, this.ctx);
-        
-        // Handle UI drawing based on edit mode and hover state
-        this.renderer.drawUI(cells, sites, this.data);
-        
-        // Dispatch meshColorsAvailable event for color tracking
+
+        // NEW: pick stage → default to full ‘cells’ pass
+        const stage = options.stage || 'cells';
+        this.renderGraph.markDirtyFrom(stage);
+
+        // Delegate actual drawing to RenderGraph
+        this.renderGraph.render(colors, preserveColors);
+
+        // colours available event (unchanged)
         if (this._colorTrackingInitialized) {
-            const colorsAvailableEvent = new CustomEvent('meshColorsAvailable', {
-                detail: { 
+            document.dispatchEvent(new CustomEvent('meshColorsAvailable', {
+                detail: {
                     colors: this.getAllColors(),
                     cellCount: this.getCellCount(),
                     timestamp: new Date().toISOString()
                 }
-            });
-            document.dispatchEvent(colorsAvailableEvent);
+            }));
         }
     }
     
@@ -165,8 +144,7 @@ class MeshGradientCore {
      */
     setEditMode(enabled, preserveState = true) {
         this.editMode = enabled;
-        // Always preserve colors by passing true to render
-        this.render(null, true);
+        this.render(null, true, { stage: 'ui' });
         
         if (enabled) {
             document.body.classList.add('edit-mode');
@@ -208,7 +186,7 @@ class MeshGradientCore {
         }
         
         // Always preserve colors during drag
-        this.render(null, true);
+        this.render(null, true, { stage: 'cells' });
     }
     
     endDrag() {
@@ -229,7 +207,7 @@ class MeshGradientCore {
         if (cellIndex !== this.hoverCellIndex) {
             this.hoverCellIndex = cellIndex;
             // Always preserve colors during hover (true)
-            this.render(null, true);
+            this.render(null, true, { stage: 'ui' });
         }
     }
     
@@ -607,7 +585,7 @@ class MeshGradientCore {
             this.canvas.style.cursor = result.cursor;
             if (result.render) {
                 // Always preserve colors during button hover updates
-                this.render(null, true);
+                this.render(null, true, { stage: 'ui' });
             }
         }
     }
@@ -638,7 +616,7 @@ class MeshGradientCore {
     getMaxBlurAmount() { return this.data.maxBlurAmount; }
     setBlurAmount(amount) { 
         this.data.blurAmount = Math.min(amount, this.data.maxBlurAmount);
-        // Use preserveColors=true to apply blur without regenerating colors
+        this.renderGraph.markDirtyFrom('postFx');
         this.render(null, true);
     }
     
