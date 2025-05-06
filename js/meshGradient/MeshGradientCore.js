@@ -6,6 +6,10 @@ class MeshGradientCore {
         this.canvas = document.getElementById('gradientCanvas');
         this.ctx = this.canvas.getContext('2d');
         
+        // NEW overlay for UI
+        this.uiCanvas = document.getElementById('gradientOverlay');
+        this.uiCtx = this.uiCanvas.getContext('2d');
+        
         this.width = 800;
         this.height = 600;
         
@@ -37,6 +41,10 @@ class MeshGradientCore {
 
         // Initialize animation objects
         this.hueAnimator = null;
+
+        // Cached references
+        this.containerEl = this.canvas.parentElement;          // .canvas-container
+        this.swatchesEl  = document.getElementById('colorSwatches');
     }
     
     /**
@@ -62,6 +70,26 @@ class MeshGradientCore {
             this.offCanvas.height = height;
         }
         
+        if (this.uiCanvas) {
+            this.uiCanvas.width = width;
+            this.uiCanvas.height = height;
+        }
+        
+        // NEW – reflect physical size on the wrapper & swatch bar
+        if (this.containerEl){
+            this.containerEl.style.width  = `${width}px`;
+            this.containerEl.style.height = `${height}px`;
+        }
+        if (this.swatchesEl){
+            this.swatchesEl.style.width = `${width}px`;
+        }
+
+        // --- keep CSS box size in sync (prevents browser scaling) ---
+        this.canvas.style.width   = `${width}px`;
+        this.canvas.style.height  = `${height}px`;
+        this.uiCanvas.style.width = `${width}px`;
+        this.uiCanvas.style.height= `${height}px`;
+
         return {
             maxBlurAmount: this.data.maxBlurAmount,
             currentBlurAmount: this.data.blurAmount,

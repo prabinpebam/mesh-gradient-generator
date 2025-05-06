@@ -24,7 +24,7 @@
         <div class="d-flex layout-flex gap-3">
             
             <!-- Column 1 - Fluid, fills available space -->
-            <div class="main-area flex-grow-1 position-relative d-flex flex-column">
+            <div class="main-area flex-grow-1 d-flex flex-column">
                 <!-- Toolbar at top - sticky, not fixed -->
                 <div class="toolbar">
                     <div class="d-flex align-items-center justify-content-between">
@@ -73,16 +73,17 @@
                 </div>
                 
                 <!-- Canvas centered in column -->
-                <div class="canvas-container flex-grow-1 d-flex flex-column justify-content-center align-items-center position-relative p-2 rounded">
+                <div class="canvas-container">
                     <canvas id="gradientCanvas"></canvas>
+                    <canvas id="gradientOverlay"></canvas>
                     <!-- Hidden color picker for cell color selection -->
                     <input type="color" id="cellColorPicker" class="cell-color-picker" />
-                    
-                    <!-- Fixed height container for color swatches to prevent layout shifts -->
-                    <div id="colorSwatches" class="swatches-container">
-                        <!-- Initial placeholder to prevent layout shifts -->
-                        <div class="swatches-placeholder"></div>
-                    </div>
+                </div>
+
+                <!-- Swatches container moved OUTSIDE canvas-container -->
+                <div id="colorSwatches" class="swatches-container">
+                    <!-- Initial placeholder to prevent layout shifts -->
+                    <div class="swatches-placeholder"></div>
                 </div>
 
             </div>
@@ -338,7 +339,10 @@
     <script src="js/meshGradient/index.js"></script>
     <script src="js/meshGradient.js"></script>
     <script src="js/corePatches.js"></script>
-    
+
+    <!-- centre canvases -->
+    <script src="js/canvasCentering.js"></script>
+
     <!-- Load legacy UI script first to ensure backward compatibility -->
     <script src="js/ui.js"></script>
     <script src="js/themeManager.js"></script>

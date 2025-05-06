@@ -154,26 +154,14 @@ class MeshGradientRenderer {
      * @param {MeshGradientData} data - Data module
      */
     drawUI(cells, sites, data) {
-        const { editMode, hoverCellIndex, hoverControls } = this.core;
-        
-        // Skip UI drawing during animation for better performance
-        if (this.core.animation && this.core.animation.active) {
-            // Clear any hover/selection state during animation
-            this.core.hoverControls = null;
-            this.core.hoveredButton = null;
-            this.core.canvas.style.cursor = 'default';
-            return;
-        }
-        
-        // Proceed with normal UI drawing
-        // During animation, skip UI drawing to improve performance
-        if (this.core.animation && this.core.animation.active) {
-            // Log occasional debug info during animation
-            if (Math.random() < 0.05) {
-                console.log(`[RENDERER] drawUI during animation - sites: ${sites.length}, cells: ${cells.length}`);
-            }
-            return;
-        }
+        const { editMode, hoverCellIndex } = this.core;
+
+        // use overlay context
+        const ctx = this.core.uiCtx;
+        ctx.clearRect(0, 0, this.core.width, this.core.height);
+
+        // Skip UI while animating
+        if (this.core.animation && this.core.animation.active) return;
         
         // Reset hover controls
         if (editMode) {
@@ -209,7 +197,7 @@ class MeshGradientRenderer {
      * @param {Array} cells - Array of cell objects
      */
     drawCellBorders(cells) {
-        const ctx = this.core.ctx;
+        const ctx = this.core.uiCtx;
         
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.lineWidth = 1;
@@ -237,7 +225,7 @@ class MeshGradientRenderer {
      * @param {Array} cells - Array of cell objects
      */
     drawCellUI(cellIndex, sites, cells) {
-        const ctx = this.core.ctx;
+        const ctx = this.core.uiCtx;
         const { hoveredButton, hoveredCellIndex, editMode } = this.core;
         
         const site = sites[cellIndex];

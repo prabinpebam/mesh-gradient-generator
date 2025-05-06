@@ -86,6 +86,18 @@ body {
     justify-content: center;
 }
 
+/* Stack the two canvases perfectly */
+.canvas-container canvas {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	display: block;      /* remove inline-block gap */
+}
+
+#gradientCanvas   { z-index: 1; }
+#gradientOverlay  { z-index: 2; pointer-events: none; }
+
 #gradientCanvas {
     max-width: 100%;
     height: auto;
@@ -149,13 +161,16 @@ body {
 
 /* left area takes remaining width and centres canvas */
 .main-area{
-    height: 100%;
-    display:flex;
+    height: 100%;           /* Ensure it takes full height */
+    display: flex;
     flex-direction: column;
-    justify-content: flex-start; /* Align content to top */
-    align-items:center;
-    position: relative;     /* For toolbar positioning */
-    min-height: calc(100vh - 2rem); /* Account for container padding */
+    justify-content: flex-start;  /* was center – let JS centre the canvas */
+    align-items: stretch;         /* was center */
+    /* Remove min-height if height: 100% is reliable */
+    /* Remove position: relative unless needed for other children */
+    flex-grow: 1;            /* Allow it to grow in the parent flex layout */
+    overflow: hidden;        /* Prevent content spillover */
+    position: relative;          /* lets children use absolute coordinates */
 }
 
 /* .main-area margin already compensates the 420‑px fixed sidebar */
@@ -164,6 +179,8 @@ body {
 @media (min-width:992px){
     .main-area{
         margin-bottom:0!important;
+        justify-content: flex-start;
+        align-items: stretch;
     }
 }
 
@@ -380,6 +397,43 @@ input[type="color"]::-webkit-color-swatch-wrapper {
 
 #animationParameters.animation-params-visible {
     max-height: 500px; /* Enough to fit all controls */
+}
+
+/* ----- CANVAS WRAPPER ------------------------------------------------------- */
+.canvas-container{
+	position: relative;     /* Anchor for the absolute canvases */
+	flex-shrink: 0;         /* Prevent shrinking if content overflows */
+	/* width/height are set dynamically by JS */
+    /* Remove padding, flex properties, etc. */
+    border-radius: 20px;    /* Keep rounded corners if desired */
+    overflow: hidden;       /* Clip canvases to rounded corners */
+    position: absolute;          /* will be centred via JS */
+    inset: 0;                    /* required for Safari to accept ‘left/top’ updates */
+    transform-origin: top left;   /* new – anchor for scale() */
+}
+
+/* two canvases overlap 1:1 inside wrapper */
+.canvas-container canvas{
+	position: absolute;
+	top: 0;
+	left: 0;
+	display: block;
+    /* width/height styles are set dynamically by JS */
+    border-radius: inherit; /* Inherit border-radius from container */
+}
+#gradientCanvas  { z-index: 1; }
+#gradientOverlay { z-index: 2; pointer-events: none; }
+
+/* ----- SWATCH BAR ----------------------------------------------------------- */
+.swatches-container{
+    /* was static – turn into absolute companion of the canvas */
+    position: absolute;
+    inset: 0;           /* left/top will be set by JS, width already synced */
+    margin-top: 0;      /* gap handled by JS */
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
 }
 
 

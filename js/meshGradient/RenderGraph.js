@@ -63,9 +63,13 @@ class RenderGraph {
 
         /* ---------- UI / COMPOSITE ---------- */
         if (this.dirty.ui) {
+            // draw bitmap to screen
             core.ctx.clearRect(0, 0, core.width, core.height);
             core.data.distortions.apply(core.offCanvas, core.ctx);
+
+            // let renderer paint on overlay
             core.renderer.drawUI(this.cells, this.sites, core.data);
+
             this.dirty.ui = false;
         }
     }
