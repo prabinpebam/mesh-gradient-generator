@@ -107,7 +107,7 @@ class MeshGradientCore {
         // When cell count changes, force immediate regeneration
         if (options.cellCount !== undefined && 
             options.cellCount !== this.data.cellCount) {
-            console.log(`Cell count changing from ${this.data.cellCount} to ${options.cellCount}`);
+            // console.log(`Cell count changing from ${this.data.cellCount} to ${options.cellCount}`);
             
             // Make sure this is handled with high priority
             requestAnimationFrame(() => {
@@ -281,7 +281,7 @@ class MeshGradientCore {
         
         if (this.data && this.data.voronoi && this.data.voronoi.sites) {
             const sites = this.data.voronoi.sites;
-            console.log(`[ANIMATION] Initializing animation for ${sites.length} cells`);
+            // console.log(`[ANIMATION] Initializing animation for ${sites.length} cells`);
             
             // Store original colors if not already stored
             if (typeof this.getAllColors === 'function' && !this.animation.originalColors) {
@@ -301,10 +301,10 @@ class MeshGradientCore {
                 };
             });
             
-            console.log(`[ANIMATION] Initialized ${this.animation.sites.length} animation properties`);
+            // console.log(`[ANIMATION] Initialized ${this.animation.sites.length} animation properties`);
             this.animation.initialized = true;
         } else {
-            console.error("[ANIMATION] No sites available for animation initialization");
+            // console.error("[ANIMATION] No sites available for animation initialization");
         }
     }
     
@@ -796,7 +796,7 @@ class MeshGradientCore {
                     cellCount = this.data.cellCount;
                 }
                 
-                console.log(`Getting colors from ${cellCount} cells`);
+                // console.log(`Getting colors from ${cellCount} cells`);
                 
                 for (let i = 0; i < cellCount; i++) {
                     const color = this.getCellColor(i);
@@ -811,8 +811,8 @@ class MeshGradientCore {
                 
                 // Log detailed info about found colors
                 if (colors.length > 0) {
-                    console.log(`Found ${colors.length} unique colors from ${cellCount} cells: `, 
-                        colors.map(c => c.hex));
+                    // console.log(`Found ${colors.length} unique colors from ${cellCount} cells: `, 
+                    //     colors.map(c => c.hex));
                     return colors;
                 }
             }
@@ -821,7 +821,7 @@ class MeshGradientCore {
             if (this.data && this.data.currentColors && Array.isArray(this.data.currentColors)) {
                 const currentColors = this.data.currentColors.filter(c => c && c.hex);
                 if (currentColors.length > 0) {
-                    console.log(`Found ${currentColors.length} colors in currentColors`);
+                    // console.log(`Found ${currentColors.length} colors in currentColors`);
                     return currentColors;
                 }
             }
@@ -831,15 +831,15 @@ class MeshGradientCore {
                 this.data.colorPalette.lastGeneratedColors) {
                 const paletteColors = [...this.data.colorPalette.lastGeneratedColors].filter(c => c);
                 if (paletteColors.length > 0) {
-                    console.log(`Found ${paletteColors.length} colors in colorPalette`);
+                    // console.log(`Found ${paletteColors.length} colors in colorPalette`);
                     return paletteColors;
                 }
             }
         } catch (err) {
-            console.error("Error in getAllColors:", err);
+            // console.error("Error in getAllColors:", err);
         }
         
-        console.log(`Returning ${colors.length} total colors`);
+        // console.log(`Returning ${colors.length} total colors`);
         return colors;
     }
     
@@ -898,7 +898,7 @@ class MeshGradientCore {
                 return parseInt(cellCountSlider.value) || 0;
             }
         } catch (err) {
-            console.error("Error getting cell count:", err);
+            // console.error("Error getting cell count:", err);
         }
         
         return 0;
@@ -966,7 +966,7 @@ class MeshGradientCore {
     initHueAnimation() {
         if (!this.hueAnimator) {
             this.hueAnimator = new HueAnimator(this);
-            console.log('[Core] Hue animator initialized');
+            // console.log('[Core] Hue animator initialized');
         }
         return this.hueAnimator;
     }

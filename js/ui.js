@@ -10,16 +10,12 @@ let meshGradient;
  * UI Controller for the Mesh Gradient Generator
  */
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Legacy UI initializing...');
-    
     // Add a small delay to ensure MeshGradient is fully initialized
     setTimeout(() => {
         if (typeof MeshGradient === 'undefined') {
-            console.error("MeshGradient not found. Check script loading order.");
+            // console.error("MeshGradient not found. Check script loading order.");
             return;
         }
-        
-        console.log("MeshGradient found, continuing with UI initialization");
         
         // Create the MeshGradient instance first
         try {
@@ -29,13 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof window.meshGradientUI !== 'undefined') {
                 window.meshGradientUI.meshGradient = meshGradient;
                 window.meshGradientUI.initialize();
-                console.log("Initialized modular UI system");
             } else {
-                console.log("Modular UI system not loaded, falling back to legacy UI");
                 initializeUI();
             }
         } catch (error) {
-            console.error('MeshGradient not found. Check script loading order.', error);
+            // console.error('MeshGradient not found. Check script loading order.', error);
         }
     }, 100);
 });
@@ -121,7 +115,6 @@ function initializeUI() {
     
     // Initial UI setup
     function initUI() {
-        console.log("initUI called");
         const constraints = meshGradient.getConstraints();
 
         // Cell slider ------------------------
@@ -161,7 +154,6 @@ function initializeUI() {
             
             // Update the mesh gradient with the selected harmony
             const selectedHarmony = harmonies[randomIndex].value;
-            console.log(`Selected random color harmony: ${selectedHarmony}`);
             meshGradient.setColorHarmony(selectedHarmony);
         }
     }
@@ -380,10 +372,8 @@ function initializeUI() {
     // Distortion type change
     distortionTypeSelect.addEventListener('change', function() {
         const type = distortionTypeSelect.value;
-        console.log("Distortion selected:", type);
         
         if (type === 'none') {
-            console.log("Disabling distortion");
             distortionParams.classList.add('d-none');
             const distortions = getDistortions();
             if (distortions && typeof distortions.setStack === 'function') {
@@ -391,7 +381,6 @@ function initializeUI() {
             }
             editModeToggle.disabled = false;
         } else {
-            console.log("Enabling distortion:", type);
             distortionParams.classList.remove('d-none');
             
             // Create distortion options object
@@ -403,7 +392,6 @@ function initializeUI() {
                 distortionOpts.centerY = 0.5;
                 distortionOpts.angleOffset = 0;
                 distortionOpts.zoom = 1.0;
-                console.log("Polar distortion options:", distortionOpts);
             }
             
             const distortions = getDistortions();
@@ -542,7 +530,6 @@ function initializeUI() {
     });
     
     initUI();
-    console.log("UI initialization complete");
     
     /* ------------------------------------------------------------------ */
     /* Distortion parameter meta‑table                                     */
@@ -608,7 +595,7 @@ function initializeUI() {
                 applyDistortionNoColorChange(currentDistortion);
             };
             wrap.appendChild(sel);
-        }else{
+        } else {
             const input=document.createElement('input');
             input.type='range'; input.className='form-range';
             input.id=id;
@@ -745,7 +732,7 @@ function updateSwatches() {
   try {
     // Defensive check - ensure meshGradient is available before proceeding
     if (!window.meshGradient) {
-      console.log("meshGradient not available yet, skipping swatch update");
+      // console.log("meshGradient not available yet, skipping swatch update");
       return;
     }
     
@@ -781,10 +768,10 @@ function updateSwatches() {
             darkModePillBgColor: '#000000'  // Force black background for dark mode
           });
         }
-        console.log('Applied color picker styles via API for both hover and edit modes');
+        // console.log('Applied color picker styles via API for both hover and edit modes');
       } else {
         // Skip styling if the API doesn't exist - this is safer
-        console.log('Color picker styling API not available, using default styles');
+        // console.log('Color picker styling API not available, using default styles');
       }
     }
 
@@ -792,7 +779,7 @@ function updateSwatches() {
     try {
       setupColorPickerStyles();
     } catch (err) {
-      console.warn("Could not set up color picker styles:", err);
+      // console.warn("Could not set up color picker styles:", err);
     }
     
     // Get all unique colors from the gradient
@@ -814,7 +801,7 @@ function updateSwatches() {
             });
           }
         } catch (err) {
-          console.warn("Error using getAllColors:", err);
+          // console.warn("Error using getAllColors:", err);
         }
       }
       
@@ -828,7 +815,7 @@ function updateSwatches() {
             }
           });
         } catch (err) {
-          console.warn("Error using currentColors:", err);
+          // console.warn("Error using currentColors:", err);
         }
       }
       
@@ -847,7 +834,7 @@ function updateSwatches() {
             }
           }
         } catch (err) {
-          console.warn("Error using getCellColor:", err);
+          // console.warn("Error using getCellColor:", err);
         }
       }
       
@@ -862,7 +849,7 @@ function updateSwatches() {
             }
           });
         } catch (err) {
-          console.warn("Error using lastGeneratedColors:", err);
+          // console.warn("Error using lastGeneratedColors:", err);
         }
       }
       
@@ -908,10 +895,10 @@ function updateSwatches() {
       swatchContainer.appendChild(swatchesWrapper);
       
     } catch (err) {
-      console.warn("Error getting colors for swatches:", err);
+      // console.warn("Error getting colors for swatches:", err);
     }
   } catch (outerErr) {
-    console.error("Critical error in updateSwatches:", outerErr);
+    // console.error("Critical error in updateSwatches:", outerErr);
   }
 }
 
@@ -920,7 +907,7 @@ function updateSwatches() {
  * @param {Object} details - Additional information about the color change
  */
 function notifyColorChange(details = {}) {
-  console.log('Canvas colors updated:', details);
+  // console.log('Canvas colors updated:', details);
   
   // Create and dispatch a custom event
   const event = new CustomEvent('meshColorsChanged', { 
@@ -938,11 +925,11 @@ function notifyColorChange(details = {}) {
  * @param {string} source - The source of the color change
  */
 function logAllCellColors(source = 'unknown') {
-  console.log(`Cell colors updated from: ${source}`);
+  // console.log(`Cell colors updated from: ${source}`);
   
   // Ensure meshGradient exists
   if (!window.meshGradient) {
-    console.log("meshGradient not available yet - initialization in progress");
+    // console.log("meshGradient not available yet - initialization in progress");
     return;
   }
   
@@ -950,33 +937,33 @@ function logAllCellColors(source = 'unknown') {
     // Use the new unified method for getting colors
     if (typeof meshGradient.getAllColors === 'function') {
       const allColors = meshGradient.getAllColors();
-      console.log(`Found ${allColors.length} colors in gradient:`, allColors);
+      // console.log(`Found ${allColors.length} colors in gradient:`, allColors);
       
       // Also log the cell count for comparison
       const cellCount = typeof meshGradient.getCellCount === 'function' ? 
           meshGradient.getCellCount() : 'unknown';
-      console.log(`Current cell count: ${cellCount}`);
+      // console.log(`Current cell count: ${cellCount}`);
       return;
     }
     
     // Use the new unified method for getting colors if available
     if (typeof window.getMeshGradientColors === 'function') {
       const allColors = window.getMeshGradientColors();
-      console.log(`Found ${allColors.length} colors using getMeshGradientColors():`, allColors);
+      // console.log(`Found ${allColors.length} colors using getMeshGradientColors():`, allColors);
       return;
     }
     
     // Use the class method if available
     if (typeof meshGradient.getAllColors === 'function') {
       const allColors = meshGradient.getAllColors();
-      console.log(`Found ${allColors.length} colors using getAllColors():`, allColors);
+      // console.log(`Found ${allColors.length} colors using getAllColors():`, allColors);
       return;
     }
     
     // Fallback to the original implementation
     // Safely log keys with null check
     if (meshGradient) {
-      console.log("MeshGradient structure keys:", Object.keys(meshGradient));
+      // console.log("MeshGradient structure keys:", Object.keys(meshGradient));
     }
     
     // Directly check for data in known possible locations
@@ -984,19 +971,19 @@ function logAllCellColors(source = 'unknown') {
     
     // Try to get cells from various possible locations in the object structure
     if (meshGradient.data && meshGradient.data.cells) {
-      console.log("Found cells in meshGradient.data.cells", meshGradient.data.cells.length);
+      // console.log("Found cells in meshGradient.data.cells", meshGradient.data.cells.length);
       cells = meshGradient.data.cells;
     } else if (meshGradient.cells) {
-      console.log("Found cells in meshGradient.cells", meshGradient.cells.length);
+      // console.log("Found cells in meshGradient.cells", meshGradient.cells.length);
       cells = meshGradient.cells;
     } else if (meshGradient.renderer && meshGradient.renderer.cells) {
-      console.log("Found cells in meshGradient.renderer.cells", meshGradient.renderer.cells.length);
+      // console.log("Found cells in meshGradient.renderer.cells", meshGradient.renderer.cells.length);
       cells = meshGradient.renderer.cells;
     } else if (meshGradient.data && meshGradient.data.voronoi && meshGradient.data.voronoi.cells) {
-      console.log("Found cells in meshGradient.data.voronoi.cells", meshGradient.data.voronoi.cells.length);
+      // console.log("Found cells in meshGradient.data.voronoi.cells", meshGradient.data.voronoi.cells.length);
       cells = meshGradient.data.voronoi.cells;
     } else if (meshGradient.voronoi && meshGradient.voronoi.cells) {
-      console.log("Found cells in meshGradient.voronoi.cells", meshGradient.voronoi.cells.length);
+      // console.log("Found cells in meshGradient.voronoi.cells", meshGradient.voronoi.cells.length);
       cells = meshGradient.voronoi.cells;
     }
     
@@ -1025,21 +1012,21 @@ function logAllCellColors(source = 'unknown') {
             });
           }
         } catch (err) {
-          console.warn(`Error getting color for cell ${i}:`, err);
+          // console.warn(`Error getting color for cell ${i}:`, err);
         }
       }
       
-      console.log(`Canvas contains ${cellColors.length} cells with colors:`, cellColors);
+      // console.log(`Canvas contains ${cellColors.length} cells with colors:`, cellColors);
     } else {
       // If there are no cells found in any of the expected locations, try more aggressive inspection
-      console.log("No cells found in standard locations. Checking deeper...");
+      // console.log("No cells found in standard locations. Checking deeper...");
       
       // Directly inspect the meshGradient object for color properties
       let colorProperties = [];
       
       // Check for color arrays directly on meshGradient
       if (meshGradient.colors && Array.isArray(meshGradient.colors)) {
-        console.log("Found meshGradient.colors:", meshGradient.colors);
+        // console.log("Found meshGradient.colors:", meshGradient.colors);
         colorProperties.push({
           source: "meshGradient.colors",
           colors: meshGradient.colors.map(c => typeof c === 'string' ? c : (c && c.hex) || c)
@@ -1047,7 +1034,7 @@ function logAllCellColors(source = 'unknown') {
       }
       
       if (meshGradient.currentColors && Array.isArray(meshGradient.currentColors)) {
-        console.log("Found meshGradient.currentColors:", meshGradient.currentColors);
+        // console.log("Found meshGradient.currentColors:", meshGradient.currentColors);
         colorProperties.push({
           source: "meshGradient.currentColors",
           colors: meshGradient.currentColors.map(c => typeof c === 'string' ? c : (c && c.hex) || c)
@@ -1057,14 +1044,14 @@ function logAllCellColors(source = 'unknown') {
       // Check in data object
       if (meshGradient.data) {
         if (meshGradient.data.colors && Array.isArray(meshGradient.data.colors)) {
-          console.log("Found meshGradient.data.colors:", meshGradient.data.colors);
+          // console.log("Found meshGradient.data.colors:", meshGradient.data.colors);
           colorProperties.push({
             source: "meshGradient.data.colors",
             colors: meshGradient.data.colors.map(c => typeof c === 'string' ? c : (c && c.hex) || c)
           });
         }
         if (meshGradient.data.colorPalette) {
-          console.log("Found meshGradient.data.colorPalette:", meshGradient.data.colorPalette);
+          // console.log("Found meshGradient.data.colorPalette:", meshGradient.data.colorPalette);
           
           // Extract colors from the colorPalette object if it has lastGeneratedColors
           if (meshGradient.data.colorPalette.lastGeneratedColors && 
@@ -1087,29 +1074,29 @@ function logAllCellColors(source = 'unknown') {
       }
       
       if (colorProperties.length > 0) {
-        console.log("Found color collections:", colorProperties);
+        // console.log("Found color collections:", colorProperties);
       } else {
-        console.log("No cells available yet in the gradient");
+        // console.log("No cells available yet in the gradient");
       }
     }
   } catch (err) {
-    console.error("Error logging cell colors:", err);
+    // console.error("Error logging cell colors:", err);
   }
 }
 
 // Add a listener for our new custom event
 document.addEventListener('meshColorsAvailable', function(event) {
-  console.log('meshColorsAvailable event received:', event.detail);
+  // console.log('meshColorsAvailable event received:', event.detail);
   if (event.detail && Array.isArray(event.detail.colors)) {
-    console.log(`Custom event provided ${event.detail.colors.length} colors:`, 
-      event.detail.colors.map(c => typeof c === 'string' ? c : (c && c.hex)));
+    // console.log(`Custom event provided ${event.detail.colors.length} colors:`, 
+    //   event.detail.colors.map(c => typeof c === 'string' ? c : (c && c.hex)));
     setTimeout(updateSwatches, 100);
   }
 });
 
 // Listen for meshColorsChanged event too, for backward compatibility
 document.addEventListener('meshColorsChanged', function() {
-  console.log('meshColorsChanged event received - updating swatches');
+  // console.log('meshColorsChanged event received - updating swatches');
   updateSwatches();
 });
 
@@ -1151,7 +1138,7 @@ function patchMeshGradientForColorTracking() {
     return result;
   };
   
-  console.log('MeshGradient color tracking enabled');
+  // console.log('MeshGradient color tracking enabled');
 }
 
 // Call this function after meshGradient is initialized
